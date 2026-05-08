@@ -37,7 +37,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
     ].join('');
 
     function _savedon(app, amount, $btn, $msg) {
-        var strAmount = String(Math.round(amount));
+        var strAmount = String(amount);
         var done = false;
 
         var timeoutId = setTimeout(function () {
@@ -64,7 +64,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
             var varName = 'don_' + userId;
 
             function onSaveSuccess() {
-                $msg.text('✓ Don de €' + Math.round(amount) + ' enregistré !').addClass('crb-success');
+                $msg.text('✓ Don de €' + amount + ' enregistré !').addClass('crb-success');
                 $btn.prop('disabled', false);
             }
 
@@ -99,7 +99,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
         initialProperties: {},
         paint: function ($element, layout) {
             if ($element.data('crb-initialized')) {
-                return;
+                return qlik.Promise.resolve();
             }
             $element.data('crb-initialized', true);
             $element.html(WIDGET_HTML);
@@ -125,6 +125,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
 
                 _savedon(app, amount, $btn, $msg);
             });
+            return qlik.Promise.resolve();
         }
     };
 });

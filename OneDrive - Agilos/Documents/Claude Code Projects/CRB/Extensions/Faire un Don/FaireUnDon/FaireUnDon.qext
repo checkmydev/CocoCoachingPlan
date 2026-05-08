@@ -10,6 +10,6 @@
   "license": "MIT",
   "repository": {},
   "dependencies": {
-    "qlik-sense": ">=3.0.0"
+    "qlik-sense": ">=3.2.0"
   }
 }
