@@ -1,0 +1,14 @@
+{
+  "name": "Faire un Don - Croix-Rouge",
+  "description": "Widget de don pour la Croix-Rouge de Belgique. Enregistre le montant dans une variable don_<UserId> et sauvegarde l'app.",
+  "type": "visualization",
+  "version": "1.0.0",
+  "author": "CRB / Agilos",
+  "homepage": "",
+  "keywords": "qlik-sense, visualization, don, crb",
+  "license": "MIT",
+  "repository": {},
+  "dependencies": {
+    "qlik-sense": ">=3.0.x"
+  }
+}
