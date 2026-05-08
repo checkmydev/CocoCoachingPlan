@@ -37,28 +37,54 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
     ].join('');
 
     function _savedon(app, amount, $btn, $msg) {
-        var strAmount = String(amount);
+        var strAmount = String(Math.round(amount));
+        var done = false;
+
+        var timeoutId = setTimeout(function () {
+            if (done) { return; }
+            done = true;
+            $msg.text('Erreur : délai dépassé.').addClass('crb-error');
+            $btn.prop('disabled', false);
+        }, 10000);
 
         qlik.getGlobal(null).getAuthenticatedUser(function (reply) {
+            if (done) { return; }
+            clearTimeout(timeoutId);
+            done = true;
+
             var match = /UserId=([^;]+)/.exec(reply.qReturn || '');
             var rawId = match ? match[1].trim() : 'anonymous';
             var userId = rawId.replace(/[^a-zA-Z0-9._-]/g, '_');
             var varName = 'don_' + userId;
 
-            app.variable.setStringValue(varName, strAmount).then(function () {
-                app.doSave();
-                $msg.text('✓ Don de €' + amount + ' enregistré !').addClass('crb-success');
+            function onSaveSuccess() {
+                $msg.text('✓ Don de €' + Math.round(amount) + ' enregistré !').addClass('crb-success');
                 $btn.prop('disabled', false);
-            }, function () {
-                app.createVariable({ qName: varName, qDefinition: strAmount }).then(function () {
-                    app.doSave();
-                    $msg.text('✓ Don de €' + amount + ' enregistré !').addClass('crb-success');
-                    $btn.prop('disabled', false);
-                }, function () {
-                    $msg.text('Erreur : impossible d\'enregistrer le don.').addClass('crb-error');
-                    $btn.prop('disabled', false);
-                });
-            });
+            }
+
+            function onSaveError() {
+                $msg.text('Erreur : impossible de sauvegarder.').addClass('crb-error');
+                $btn.prop('disabled', false);
+            }
+
+            function onWriteSuccess() {
+                app.doSave().then(onSaveSuccess, onSaveError);
+            }
+
+            function onWriteError() {
+                $msg.text('Erreur : impossible d\'enregistrer le don.').addClass('crb-error');
+                $btn.prop('disabled', false);
+            }
+
+            app.variable.setStringValue(varName, strAmount).then(
+                onWriteSuccess,
+                function () {
+                    app.createVariable({ qName: varName, qDefinition: strAmount }).then(
+                        onWriteSuccess,
+                        onWriteError
+                    );
+                }
+            );
         });
     }
 
@@ -79,7 +105,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
 
             $btn.on('click', function () {
                 var raw = $input.val();
-                var amount = parseFloat(raw);
+                var amount = parseInt(raw, 10);
 
                 $msg.removeClass('crb-success crb-error');
 
