@@ -52,6 +52,12 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
             clearTimeout(timeoutId);
             done = true;
 
+            if (!reply) {
+                $msg.text('Erreur : utilisateur non identifié.').addClass('crb-error');
+                $btn.prop('disabled', false);
+                return;
+            }
+
             var match = /UserId=([^;]+)/.exec(reply.qReturn || '');
             var rawId = match ? match[1].trim() : 'anonymous';
             var userId = rawId.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -79,7 +85,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
             app.variable.setStringValue(varName, strAmount).then(
                 onWriteSuccess,
                 function () {
-                    app.createVariable({ qName: varName, qDefinition: strAmount }).then(
+                    app.createVariable({ qInfo: { qType: 'variable' }, qName: varName, qDefinition: strAmount }).then(
                         onWriteSuccess,
                         onWriteError
                     );
