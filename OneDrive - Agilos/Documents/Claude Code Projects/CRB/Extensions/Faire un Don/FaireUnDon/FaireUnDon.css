@@ -76,10 +76,11 @@
     font-weight: 700;
     font-size: 16px;
     margin-right: 6px;
+    -webkit-user-select: none;
     user-select: none;
 }
 
-.crb-amount {
+.crb-don-widget .crb-amount {
     border: none;
     outline: none;
     background: transparent;
@@ -89,16 +90,16 @@
     min-width: 0;
 }
 
-.crb-amount::placeholder {
+.crb-don-widget .crb-amount::placeholder {
     color: #ccc;
 }
 
-.crb-amount::-webkit-inner-spin-button,
-.crb-amount::-webkit-outer-spin-button {
+.crb-don-widget .crb-amount::-webkit-inner-spin-button,
+.crb-don-widget .crb-amount::-webkit-outer-spin-button {
     opacity: 0.6;
 }
 
-.crb-heart-btn {
+.crb-don-widget .crb-heart-btn {
     background: none;
     border: none;
     cursor: pointer;
@@ -108,15 +109,15 @@
     transition: background 0.2s;
 }
 
-.crb-heart-btn:hover {
+.crb-don-widget .crb-heart-btn:hover {
     background: rgba(204,0,0,0.06);
 }
 
-.crb-heart-btn:hover .crb-heart {
+.crb-don-widget .crb-heart-btn:hover .crb-heart {
     animation: crb-pulse 0.85s ease-in-out infinite;
 }
 
-.crb-heart-btn:disabled {
+.crb-don-widget .crb-heart-btn:disabled {
     pointer-events: none;
     opacity: 0.6;
 }
@@ -129,8 +130,9 @@
     display: block;
 }
 
-.crb-beat .crb-heart {
-    animation: crb-beat 0.45s ease-in-out forwards !important;
+.crb-beat.crb-heart-btn .crb-heart,
+.crb-beat.crb-heart-btn:hover .crb-heart {
+    animation: crb-beat 0.45s ease-in-out forwards;
 }
 
 @keyframes crb-pulse {
