@@ -4,11 +4,12 @@
   "type": "visualization",
   "version": "1.0.0",
   "author": "CRB / Agilos",
+  "icon": "heart",
   "homepage": "",
   "keywords": "qlik-sense, visualization, don, crb",
   "license": "MIT",
   "repository": {},
   "dependencies": {
-    "qlik-sense": ">=3.0.x"
+    "qlik-sense": ">=3.0.0"
   }
 }
