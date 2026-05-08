@@ -1,4 +1,4 @@
-define(['jquery', 'css!./FaireUnDon'], function ($) {
+define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
     'use strict';
 
     var CROSS_SVG = [
@@ -36,6 +36,32 @@ define(['jquery', 'css!./FaireUnDon'], function ($) {
         '</div>'
     ].join('');
 
+    function _savedon(app, amount, $btn, $msg) {
+        var strAmount = String(amount);
+
+        qlik.getGlobal(null).getAuthenticatedUser(function (reply) {
+            var match = /UserId=([^;]+)/.exec(reply.qReturn || '');
+            var rawId = match ? match[1].trim() : 'anonymous';
+            var userId = rawId.replace(/[^a-zA-Z0-9._-]/g, '_');
+            var varName = 'don_' + userId;
+
+            app.variable.setStringValue(varName, strAmount).then(function () {
+                app.doSave();
+                $msg.text('✓ Don de €' + amount + ' enregistré !').addClass('crb-success');
+                $btn.prop('disabled', false);
+            }, function () {
+                app.createVariable({ qName: varName, qDefinition: strAmount }).then(function () {
+                    app.doSave();
+                    $msg.text('✓ Don de €' + amount + ' enregistré !').addClass('crb-success');
+                    $btn.prop('disabled', false);
+                }, function () {
+                    $msg.text('Erreur : impossible d\'enregistrer le don.').addClass('crb-error');
+                    $btn.prop('disabled', false);
+                });
+            });
+        });
+    }
+
     return {
         definition: {},
         initialProperties: {},
@@ -45,6 +71,28 @@ define(['jquery', 'css!./FaireUnDon'], function ($) {
             }
             $element.data('crb-initialized', true);
             $element.html(WIDGET_HTML);
+
+            var app = qlik.currApp(this);
+            var $btn = $element.find('.crb-heart-btn');
+            var $input = $element.find('.crb-amount');
+            var $msg = $element.find('.crb-message');
+
+            $btn.on('click', function () {
+                var raw = $input.val();
+                var amount = parseFloat(raw);
+
+                $msg.removeClass('crb-success crb-error').hide();
+
+                if (!raw || isNaN(amount) || amount <= 0) {
+                    $msg.text('Veuillez entrer un montant valide.').addClass('crb-error');
+                    return;
+                }
+
+                $btn.addClass('crb-beat').prop('disabled', true);
+                setTimeout(function () { $btn.removeClass('crb-beat'); }, 600);
+
+                _savedon(app, amount, $btn, $msg);
+            });
         }
     };
 });
