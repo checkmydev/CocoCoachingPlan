@@ -36,10 +36,9 @@ export function BudgetControl() {
             onChange={(e) => setSelectedCentre(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-crb-navy"
           >
-            {selectedCentre === 'Tous'
-              ? centres.map((c) => <option key={c} value={c}>{c}</option>)
-              : [<option key="tous" value="Tous">Tous</option>, <option key={selectedCentre} value={selectedCentre}>{selectedCentre}</option>]
-            }
+            {centres.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -53,10 +52,9 @@ export function BudgetControl() {
             onChange={(e) => setSelectedProject(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-crb-navy"
           >
-            {selectedProject === 'Tous'
-              ? projects.map((p) => <option key={p} value={p}>{p}</option>)
-              : [<option key="tous" value="Tous">Tous</option>, <option key={selectedProject} value={selectedProject}>{selectedProject}</option>]
-            }
+            {projects.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
           </select>
         </div>
         <p className="text-sm text-gray-500 ml-auto">

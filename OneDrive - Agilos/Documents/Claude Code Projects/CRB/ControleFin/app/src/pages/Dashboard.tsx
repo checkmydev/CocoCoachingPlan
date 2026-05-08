@@ -63,7 +63,7 @@ export function Dashboard() {
             <BarChart data={budgetVsReelData} barGap={4}>
               <XAxis dataKey="centre" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => `${(v / 1000).toFixed(0)}k €`} />
+              <Tooltip formatter={(v) => `${(Number(v) / 1000).toFixed(0)}k €`} />
               <Legend />
               <Bar dataKey="budget" name="Budget" fill="#CBD5E1" radius={[3, 3, 0, 0]} />
               <Bar dataKey="reel" name="Réel" fill="#1E3A5F" radius={[3, 3, 0, 0]} />
@@ -83,8 +83,8 @@ export function Dashboard() {
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
-                label={({ name, percent }: { name: string; percent: number }) =>
-                  `${name} ${(percent * 100).toFixed(0)}%`
+                label={({ name, percent }) =>
+                  `${String(name ?? '')} ${(Number(percent) * 100).toFixed(0)}%`
                 }
                 labelLine={false}
               >
@@ -92,7 +92,7 @@ export function Dashboard() {
                   <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: number) => `${(v / 1000).toFixed(0)}k €`} />
+              <Tooltip formatter={(v) => `${(Number(v) / 1000).toFixed(0)}k €`} />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -106,7 +106,7 @@ export function Dashboard() {
             <LineChart data={monthlyExpensesData}>
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip formatter={(v: number) => `${(v / 1000).toFixed(0)}k €`} />
+              <Tooltip formatter={(v) => `${(Number(v) / 1000).toFixed(0)}k €`} />
               <Line
                 type="monotone"
                 dataKey="amount"

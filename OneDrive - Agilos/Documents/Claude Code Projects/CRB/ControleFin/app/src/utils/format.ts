@@ -14,7 +14,7 @@ export function formatPercentage(value: number): string {
 export function daysUntil(dateStr: string): number {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  const target = new Date(dateStr)
-  target.setHours(0, 0, 0, 0)
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const target = new Date(year, month - 1, day)
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
