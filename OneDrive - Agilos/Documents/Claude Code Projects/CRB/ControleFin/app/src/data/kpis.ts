@@ -4,11 +4,11 @@ export const kpisData: Kpi[] = [
   {
     id: 'budget-consumed',
     label: 'Budget consommé',
-    value: 67,
+    value: 81,
     unit: '%',
     trend: 'up',
     trendValue: '+3% vs mois dernier',
-    status: 'ok',
+    status: 'warning',
   },
   {
     id: 'cash-available',
@@ -43,7 +43,7 @@ export const alertsData: Alert[] = [
   { id: 'a1', message: 'Subside "Plan cohésion sociale" expire dans 22 jours', severity: 'critical' },
   { id: 'a2', message: 'Centre Charleroi : budget logistique à 99%', severity: 'critical' },
   { id: 'a3', message: 'Cash disponible en baisse de 12% ce mois', severity: 'warning' },
-  { id: 'a4', message: '3 factures en attente depuis > 5 jours', severity: 'warning' },
+  { id: 'a4', message: '5 documents en attente de validation', severity: 'warning' },
   { id: 'a5', message: 'Subside ACODEV expiré — 2 000 € non justifiés', severity: 'critical' },
 ]
 
@@ -58,9 +58,9 @@ export const budgetVsReelData: BudgetVsReelPoint[] = [
 
 export const monthlyExpensesData: MonthlyPoint[] = [
   { month: 'Mai 25', amount: 145000 },
-  { month: 'Jun 25', amount: 162000 },
-  { month: 'Jul 25', amount: 138000 },
-  { month: 'Aoû 25', amount: 120000 },
+  { month: 'Juin 25', amount: 162000 },
+  { month: 'Juil 25', amount: 138000 },
+  { month: 'Août 25', amount: 120000 },
   { month: 'Sep 25', amount: 155000 },
   { month: 'Oct 25', amount: 168000 },
   { month: 'Nov 25', amount: 172000 },

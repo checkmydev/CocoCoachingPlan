@@ -14,10 +14,12 @@ export interface Kpi {
   status: KpiStatus
 }
 
+export type Severity = 'critical' | 'warning'
+
 export interface Alert {
   id: string
   message: string
-  severity: 'critical' | 'warning'
+  severity: Severity
 }
 
 export interface BudgetVsReelPoint {
