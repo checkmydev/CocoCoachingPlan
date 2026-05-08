@@ -81,7 +81,7 @@ define(['qlik', 'jquery', 'css!./FaireUnDon'], function (qlik, $) {
                 var raw = $input.val();
                 var amount = parseFloat(raw);
 
-                $msg.removeClass('crb-success crb-error').hide();
+                $msg.removeClass('crb-success crb-error');
 
                 if (!raw || isNaN(amount) || amount <= 0) {
                     $msg.text('Veuillez entrer un montant valide.').addClass('crb-error');
