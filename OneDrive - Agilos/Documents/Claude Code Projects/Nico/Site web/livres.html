@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="fr"><head><title>Nicolas Ruzette — Livres</title><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400;1,600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/layout.css"><link rel="stylesheet" href="css/components.css"><link rel="stylesheet" href="css/animations.css"></head>
+<body>
+  <nav class="nav" role="navigation"><div class="nav__inner"><a href="index.html" class="nav__logo" data-i18n="nav.logo">Nicolas Ruzette</a><ul class="nav__links"><li><a href="index.html" data-i18n="nav.home">accueil</a></li><li><a href="nicolas.html" data-i18n="nav.nicolas">nicolas</a></li><li><a href="approche.html" data-i18n="nav.approche">approche</a></li><li><a href="livres.html" data-i18n="nav.livres">livres</a></li><li><a href="reserver.html" data-i18n="nav.reserver">réserver</a></li><li class="lang-switcher"><button class="lang-btn" data-lang="fr">fr</button><button class="lang-btn" data-lang="en">en</button><button class="lang-btn" data-lang="es">es</button></li></ul><button class="nav__hamburger" id="hamburger" aria-expanded="false" aria-label="Menu"><span></span><span></span><span></span></button></div></nav>
+  <div class="nav__overlay" id="nav-overlay" role="dialog" aria-modal="true"><button class="nav__overlay-close" id="nav-overlay-close" aria-label="Fermer">×</button><a href="index.html" data-i18n="nav.home">accueil</a><a href="nicolas.html" data-i18n="nav.nicolas">nicolas</a><a href="approche.html" data-i18n="nav.approche">approche</a><a href="livres.html" data-i18n="nav.livres">livres</a><a href="reserver.html" data-i18n="nav.reserver">réserver</a><div class="lang-switcher"><button class="lang-btn" data-lang="fr">fr</button><button class="lang-btn" data-lang="en">en</button><button class="lang-btn" data-lang="es">es</button></div></div>
+  <main>
+    <div class="page-header"><div class="container"><p class="page-header__eyebrow" data-i18n="livres.eyebrow">Livres</p><h1 class="page-header__title" data-i18n="livres.title">L'écriture comme autre façon de penser.</h1><p class="page-header__lead" data-i18n="livres.lead"></p></div></div>
+    <section class="section"><div class="container">
+      <div class="book-card reveal">
+        <div class="book-card__cover book-card__cover--placeholder"></div>
+        <div class="book-card__meta"><p class="book-card__lang" data-i18n="livres.book1_lang">Espagnol</p><h2 class="book-card__title" data-i18n="livres.book1_title">Kang</h2><p class="book-card__subtitle" data-i18n="livres.book1_subtitle">El parto neurodivergente</p><p class="book-card__desc" data-i18n="livres.book1_desc"></p></div>
+      </div>
+      <div class="book-card reveal">
+        <div class="book-card__cover book-card__cover--placeholder"></div>
+        <div class="book-card__meta"><p class="book-card__lang" data-i18n="livres.book2_lang">Français</p><h2 class="book-card__title" data-i18n="livres.book2_title">Guide pratique pour souffrir</h2><p class="book-card__subtitle" data-i18n="livres.book2_subtitle"></p><p class="book-card__desc" data-i18n="livres.book2_desc"></p></div>
+      </div>
+    </div></section>
+  </main>
+  <footer class="footer"><div class="footer__inner"><span class="footer__name">Nicolas Ruzette</span><ul class="footer__links"><li><a href="nicolas.html" data-i18n="footer.links.nicolas">nicolas</a></li><li><a href="approche.html" data-i18n="footer.links.approche">approche</a></li><li><a href="livres.html" data-i18n="footer.links.livres">livres</a></li><li><a href="reserver.html" data-i18n="footer.links.reserver">réserver</a></li></ul><span class="footer__location" data-i18n="footer.location">Barcelone · Plaza Urquinaona 10</span></div></footer>
+  <script src="js/i18n.js"></script><script src="js/nav.js"></script><script src="js/animations.js"></script>
+</body></html>
