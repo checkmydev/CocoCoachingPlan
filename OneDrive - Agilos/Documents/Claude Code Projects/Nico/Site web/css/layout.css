@@ -1,0 +1,17 @@
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 2rem; }
+.container--wide { max-width: var(--max-w-xl); margin: 0 auto; padding: 0 2rem; }
+.section { padding: var(--space-section) 0; }
+.section--surface { background-color: var(--color-surface); }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+
+@media (max-width: 900px) {
+  .grid-2 { grid-template-columns: 1fr; gap: 2rem; }
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .container { padding: 0 1.25rem; }
+  :root { --space-section: 4rem; }
+  .grid-3 { grid-template-columns: 1fr; }
+}
