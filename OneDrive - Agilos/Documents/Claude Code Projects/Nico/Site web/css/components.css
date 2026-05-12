@@ -1,0 +1,28 @@
+/* ── NAV ── */
+.nav { position: sticky; top: 0; z-index: 100; background-color: var(--color-bg); transition: background-color var(--transition); }
+.nav.scrolled { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background-color: rgba(245,242,237,0.85); }
+.nav__inner { display: flex; align-items: center; justify-content: space-between; max-width: var(--max-w-xl); margin: 0 auto; padding: 1.5rem 2rem; }
+.nav__logo { font-family: var(--font-display); font-size: 1.1rem; letter-spacing: 0.02em; }
+.nav__links { display: flex; align-items: center; gap: 2.5rem; list-style: none; }
+.nav__links a { font-size: 0.82rem; letter-spacing: 0.08em; color: var(--color-muted); transition: color var(--transition); position: relative; }
+.nav__links a:hover { color: var(--color-ink); }
+.nav__links a.active { color: var(--color-ink); }
+.nav__links a.active::after { content: ''; position: absolute; bottom: -3px; left: 0; right: 0; height: 1px; background-color: var(--color-accent); }
+
+.lang-switcher { display: flex; gap: 0.75rem; margin-left: 2rem; }
+.lang-btn { font-size: 0.75rem; letter-spacing: 0.08em; background: none; border: none; cursor: pointer; color: var(--color-muted); padding: 0; transition: color var(--transition); }
+.lang-btn.active, .lang-btn:hover { color: var(--color-ink); }
+
+.nav__hamburger { display: none; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; padding: 4px; }
+.nav__hamburger span { display: block; width: 24px; height: 1px; background-color: var(--color-ink); }
+
+.nav__overlay { display: none; position: fixed; inset: 0; background-color: var(--color-ink); z-index: 200; flex-direction: column; align-items: center; justify-content: center; gap: 2rem; }
+.nav__overlay.open { display: flex; }
+.nav__overlay a { font-family: var(--font-display); font-size: clamp(2rem, 6vw, 3.5rem); color: var(--color-bg); font-weight: 300; transition: opacity var(--transition); }
+.nav__overlay a:hover { opacity: 0.6; }
+.nav__overlay-close { position: absolute; top: 1.5rem; right: 2rem; background: none; border: none; color: var(--color-bg); font-size: 1.5rem; cursor: pointer; line-height: 1; }
+.nav__overlay .lang-switcher { margin-left: 0; margin-top: 1rem; gap: 1.5rem; }
+.nav__overlay .lang-btn { color: rgba(245,242,237,0.4); font-size: 0.85rem; }
+.nav__overlay .lang-btn.active, .nav__overlay .lang-btn:hover { color: var(--color-bg); }
+
+@media (max-width: 768px) { .nav__links { display: none; } .nav__hamburger { display: flex; } }
