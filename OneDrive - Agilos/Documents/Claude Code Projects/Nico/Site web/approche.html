@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <title>Nicolas Ruzette — Approche</title>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400;1,600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css"><link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+  <nav class="nav" role="navigation"><div class="nav__inner"><a href="index.html" class="nav__logo" data-i18n="nav.logo">Nicolas Ruzette</a><ul class="nav__links"><li><a href="index.html" data-i18n="nav.home">accueil</a></li><li><a href="nicolas.html" data-i18n="nav.nicolas">nicolas</a></li><li><a href="approche.html" data-i18n="nav.approche">approche</a></li><li><a href="livres.html" data-i18n="nav.livres">livres</a></li><li><a href="reserver.html" data-i18n="nav.reserver">réserver</a></li><li class="lang-switcher"><button class="lang-btn" data-lang="fr">fr</button><button class="lang-btn" data-lang="en">en</button><button class="lang-btn" data-lang="es">es</button></li></ul><button class="nav__hamburger" id="hamburger" aria-expanded="false" aria-label="Menu"><span></span><span></span><span></span></button></div></nav>
+  <div class="nav__overlay" id="nav-overlay" role="dialog" aria-modal="true"><button class="nav__overlay-close" id="nav-overlay-close" aria-label="Fermer">×</button><a href="index.html" data-i18n="nav.home">accueil</a><a href="nicolas.html" data-i18n="nav.nicolas">nicolas</a><a href="approche.html" data-i18n="nav.approche">approche</a><a href="livres.html" data-i18n="nav.livres">livres</a><a href="reserver.html" data-i18n="nav.reserver">réserver</a><div class="lang-switcher"><button class="lang-btn" data-lang="fr">fr</button><button class="lang-btn" data-lang="en">en</button><button class="lang-btn" data-lang="es">es</button></div></div>
+
+  <main>
+    <div class="page-header"><div class="container">
+      <p class="page-header__eyebrow" data-i18n="approche.eyebrow">Approche</p>
+      <h1 class="page-header__title" data-i18n="approche.title">Arrêter la course.</h1>
+      <p class="page-header__lead" data-i18n="approche.lead"></p>
+    </div></div>
+
+    <section class="section"><div class="container">
+      <div style="max-width:680px;" class="reveal">
+        <p data-i18n="approche.p1"></p>
+        <p data-i18n="approche.p2"></p>
+      </div>
+    </div></section>
+
+    <section class="section section--surface"><div class="container">
+      <div class="reveal">
+        <p style="font-size:0.78rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-muted);margin-bottom:1.5rem;" data-i18n="approche.ai_title">Ce que l'IA ne peut pas remplacer</p>
+        <p style="font-family:var(--font-display);font-style:italic;font-size:clamp(1.3rem,2.5vw,1.8rem);max-width:700px;line-height:1.5;" data-i18n="approche.ai_body"></p>
+      </div>
+    </div></section>
+
+    <section class="section"><div class="container">
+      <p style="font-size:0.78rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-muted);margin-bottom:2rem;" data-i18n="approche.axes_title">Axes de travail</p>
+      <ul class="approach-list">
+        <li class="approach-item reveal"><span class="approach-item__num">01</span><a href="neurodiversite.html" class="approach-item__title" data-i18n="approche.axis1">Neurodivergence</a><span class="approach-item__arrow">→</span></li>
+        <li class="approach-item reveal"><span class="approach-item__num">02</span><a href="corps-voix.html" class="approach-item__title" data-i18n="approche.axis2">Régulation du système nerveux</a><span class="approach-item__arrow">→</span></li>
+        <li class="approach-item reveal"><span class="approach-item__num">03</span><a href="corps-voix.html" class="approach-item__title" data-i18n="approche.axis3">Corps & conscience corporelle</a><span class="approach-item__arrow">→</span></li>
+        <li class="approach-item reveal"><span class="approach-item__num">04</span><a href="corps-voix.html" class="approach-item__title" data-i18n="approche.axis4">Voix & expression</a><span class="approach-item__arrow">→</span></li>
+        <li class="approach-item reveal"><span class="approach-item__num">05</span><a href="couples.html" class="approach-item__title" data-i18n="approche.axis5">Thérapie de couple</a><span class="approach-item__arrow">→</span></li>
+        <li class="approach-item reveal"><span class="approach-item__num">06</span><a href="addictions.html" class="approach-item__title" data-i18n="approche.axis6">Addictions & gestion émotionnelle</a><span class="approach-item__arrow">→</span></li>
+        <li class="approach-item reveal"><span class="approach-item__num">07</span><a href="groupes.html" class="approach-item__title" data-i18n="approche.axis7">Groupes & espaces collectifs</a><span class="approach-item__arrow">→</span></li>
+      </ul>
+    </div></section>
+
+    <div style="overflow:hidden;max-height:500px;">
+      <img src="images/nicolas-groupe.jpeg" alt="Nicolas Ruzette en groupe" style="width:100%;height:100%;object-fit:cover;filter:grayscale(100%);" loading="lazy">
+    </div>
+  </main>
+
+  <footer class="footer"><div class="footer__inner"><span class="footer__name">Nicolas Ruzette</span><ul class="footer__links"><li><a href="nicolas.html" data-i18n="footer.links.nicolas">nicolas</a></li><li><a href="approche.html" data-i18n="footer.links.approche">approche</a></li><li><a href="livres.html" data-i18n="footer.links.livres">livres</a></li><li><a href="reserver.html" data-i18n="footer.links.reserver">réserver</a></li></ul><span class="footer__location" data-i18n="footer.location">Barcelone · Plaza Urquinaona 10</span></div></footer>
+  <script src="js/i18n.js"></script><script src="js/nav.js"></script><script src="js/animations.js"></script>
+</body>
+</html>
