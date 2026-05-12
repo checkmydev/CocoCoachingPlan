@@ -1,0 +1,99 @@
+{
+  "nav": { "logo": "Nicolas Ruzette", "home": "home", "nicolas": "nicolas", "approche": "approach", "livres": "books", "reserver": "book" },
+  "footer": {
+    "location": "Barcelona · Plaza Urquinaona 10",
+    "links": { "nicolas": "nicolas", "approche": "approach", "livres": "books", "reserver": "book a session" }
+  },
+  "index": {
+    "eyebrow": "Clinical psychologist · Barcelona",
+    "title": "A space where you can stop trying to fix yourself.",
+    "subtitle": "Sessions in French, English and Spanish. Individual, couple and online consultations.",
+    "cta": "book a session",
+    "quote": "Suffering diminishes not when we fight it, but when we begin to understand it.",
+    "card1_title": "Neurodiversity", "card1_desc": "ADHD, autism, giftedness, hypersensitivity, masking, nervous exhaustion.", "card1_arrow": "explore",
+    "card2_title": "Couple therapy", "card2_desc": "Understanding each other's ways of functioning. Breaking out of reactive cycles.", "card2_arrow": "explore",
+    "card3_title": "Body & Voice", "card3_desc": "Nervous system, grounding, breath, expression and presence.", "card3_arrow": "explore",
+    "card4_title": "Group spaces", "card4_desc": "Talking and voice groups for neuro-sensitive people.", "card4_arrow": "explore"
+  },
+  "nicolas": {
+    "eyebrow": "About", "title": "Clinical psychologist and therapist.",
+    "p1": "I trained at UCLouvain and have worked for over ten years at the intersection of neuropsychology, systemic therapy and human diversity. What has always interested me is not so much diagnosis as functioning — the way each person inhabits their body, organises their emotions, builds their relationships.",
+    "p2": "After practising in Belgium, I moved to Barcelona. I work with individuals and couples from very different backgrounds: expatriates, LGBTQ+ people, neurodivergent profiles, people navigating deep existential questions.",
+    "p3": "My approach is integrative. I draw on emotion-focused therapy, interpersonal neurobiology, NVC and somatic work — not as techniques to apply, but as languages for understanding what is really happening.",
+    "p4": "What I aim to offer is a space where there is no need to perform, to explain, or to justify. A space where something can finally settle.",
+    "langs_title": "Languages", "badge_ucl": "UCLouvain", "badge_ordre": "Belgian Psychological Commission", "badge_years": "10+ years experience"
+  },
+  "approche": {
+    "eyebrow": "Approach", "title": "Stopping the race.",
+    "lead": "This work does not aim to make you better, perform more, or repair a flawed identity. It is about something simpler and deeper: finding a more alive relationship with yourself.",
+    "p1": "Psychological suffering is often sustained by a poor understanding of one's own functioning — and by survival strategies that have become automatic. What looks like a problem is often an attempted solution.",
+    "p2": "What I offer is to understand these mechanisms without judging them, to learn to regulate, and to gradually step out of cycles of inner struggle — to find more simplicity, presence and freedom.",
+    "ai_title": "What AI cannot replace",
+    "ai_body": "A quality of real presence. A living, moment-by-moment attunement. A regulated nervous system that regulates another. The capacity to create a space where something can settle — not because a technique is applied, but because a real encounter takes place.",
+    "axes_title": "Areas of work",
+    "axis1": "Neurodivergence", "axis2": "Nervous system regulation", "axis3": "Body & somatic awareness",
+    "axis4": "Voice & expression", "axis5": "Couple therapy", "axis6": "Addictions & emotional management", "axis7": "Groups & collective spaces"
+  },
+  "neuro": {
+    "eyebrow": "Neurodiversity", "title": "A different brain is not a broken brain.",
+    "lead": "If you have grown up feeling that you function differently — thinking too fast, feeling too intensely, exhausting yourself adapting — what you experience may have a name.",
+    "p1": "Neurodiversity refers to the natural variation in human neurological functioning. It is not a pathology. Nor is it an identity to claim at all costs. It is a different way of processing information, of engaging with the world, of feeling.",
+    "p2": "Many neurodivergent people arrive in therapy exhausted — not by their own functioning, but by years of masking, adapting, trying to fit norms that were not designed for them. This constant masking has an enormous cost.",
+    "p3": "The therapeutic work here does not seek to normalise. It is about understanding your own functioning, developing adapted regulation strategies, and finding a less conflicted relationship with yourself.",
+    "tdah_title": "ADHD", "tdah_body": "Fluctuating attention, non-linear thinking, hyperfocus, impulsivity, difficulty starting or finishing — and often, remarkable creativity and intensity. Not a lack of willpower.",
+    "tsa_title": "Autism · Asperger", "tsa_body": "Intense sensory processing, need for predictability, ways of relating that diverge from social norms — and a capacity for deep connection with what truly matters.",
+    "hpi_title": "Giftedness", "hpi_body": "Faster, denser information processing. Emotional richness, early existential questions, a feeling of being out of step — often misunderstood.",
+    "hyper_title": "Hypersensitivity", "hyper_body": "Amplified perception — sensory, emotional, relational. An inner richness that can also become exhausting when not understood.",
+    "invitation": "If some of these experiences resonate, a conversation can be enough to start untangling them."
+  },
+  "couples": {
+    "eyebrow": "Couple therapy", "title": "Many conflicts arise from a mutual misunderstanding of how the other functions.",
+    "lead": "Not from bad faith. Not from insufficient love. From a deep misunderstanding of temperaments, nervous systems, relational styles.",
+    "p1": "My approach does not involve endlessly excavating the past or deciding who is wrong. It looks at what is happening now in the interaction — the automatic patterns, the reactive loops, the ways each person regulates their emotions within the relationship.",
+    "p2": "When two people begin to understand their own functioning and each other's, something shifts. Not magically — but deeply.",
+    "p3": "I work with couples of all configurations: heterosexual, LGBTQ+, polyamorous, binational. And often with couples where one or both partners have a neurodivergent profile.",
+    "cta": "book a session"
+  },
+  "corps": {
+    "eyebrow": "Body & Voice", "title": "The body knows things the mind has not yet found words for.",
+    "nervous_title": "Nervous system & regulation",
+    "nervous_body": "Much psychological suffering is rooted in a chronically activated nervous system — on alert, in flight, or frozen. Somatic work means learning to recognise these states, to regulate them, to develop a wider window of tolerance. I integrate elements inspired by craniosacral work — a subtle listening to the body and nervous system — to support this process.",
+    "voice_title": "Voice & expression",
+    "voice_body": "The voice is one of the most direct pathways to the nervous system. When it is free, something opens. I offer spaces for voice work — breath, sound, presence, spontaneity — not as performance, but as a return to something more alive.",
+    "cta": "book a session"
+  },
+  "addictions": {
+    "eyebrow": "Addictions & compulsions", "title": "What we call addiction is often an attempt at regulation.",
+    "lead": "A way of managing the unbearable. Of escaping an inner reality that is too heavy. Of finding relief, control, or simply a moment of respite.",
+    "p1": "Compulsive behaviours — whether substances, screens, relationships, work or obsessive thoughts — are not character flaws. They are survival strategies that have become automatic. Understanding what they are trying to solve changes everything.",
+    "p2": "The approach I offer does not consist of fighting the symptom, but of understanding what it protects. Developing other ways of regulating. Gradually stepping out of the permanent struggle against oneself.",
+    "p3": "This work also includes emotional management more broadly: difficulty tolerating uncertainty, relational anxiety, emotional dependency, need for control.",
+    "cta": "book a session"
+  },
+  "groupes": {
+    "eyebrow": "Group spaces", "title": "Spaces where you can stop playing a role.",
+    "lead": "For many neuro-sensitive people, the group is where they have suffered most. What I offer is different.",
+    "p1": "Small, safe spaces, with explicit attention to each person's safety. No judgement. No performance. No need to mask.",
+    "types_title": "What I offer",
+    "type1_title": "Neurodivergence groups", "type1_body": "Sharing spaces around the neurodivergent experience — understanding your functioning, meeting others who think differently, stepping out of isolation.",
+    "type2_title": "Voice groups", "type2_body": "Exploration of voice as a tool for presence and regulation. Breath, sound, spontaneity — in a gentle, non-judgmental frame.",
+    "type3_title": "Talking groups", "type3_body": "Open spaces around existential themes: feeling out of step, searching for meaning, exhaustion from constant adaptation.",
+    "cta": "contact me for upcoming dates"
+  },
+  "livres": {
+    "eyebrow": "Books", "title": "Writing as another way of thinking.",
+    "lead": "These books are not manuals. They are attempts to put into words what happens in the therapeutic space — and beyond.",
+    "book1_lang": "Spanish", "book1_title": "Kang", "book1_subtitle": "El parto neurodivergente",
+    "book1_desc": "A narrative at the border between psychology and fiction — exploring the lived experience of neurodivergence from the inside, with attention to language, body and transformation.",
+    "book2_lang": "French", "book2_title": "Guide pratique pour souffrir", "book2_subtitle": "",
+    "book2_desc": "A book that takes suffering seriously — without pathologising it, without promising to cure it. An exploration of what we do with what hurts us, and what happens when we stop fighting it."
+  },
+  "reserver": {
+    "eyebrow": "Booking", "title": "Book a session.",
+    "lead": "Choose a time that suits you. The first session is a meeting — no commitment required.",
+    "address_label": "Practice", "address": "Plaza Urquinaona 10, 2-1 · Barcelona 08010",
+    "phone_label": "Phone", "phone": "+34 634 910 541",
+    "hours_label": "Hours", "hours": "Monday – Friday · 9am – 9pm",
+    "online_label": "Online", "online": "Zoom · Teams · Skype · WhatsApp"
+  }
+}
