@@ -1,208 +1,267 @@
-# Design Spec — Site Web Nicolas Ruzette (Psychologue & Neurodiversité)
+# Design Spec — Site Web Nicolas Ruzette (v2)
 
 **Date:** 2026-05-12  
-**Stack:** HTML / CSS / JS pur  
+**Stack:** HTML / CSS / JS pur + Cal.com embed  
 **Langues:** Français, Anglais, Espagnol  
-**Structure:** One-page avec ancres  
+**Structure:** Multi-pages  
+**Direction artistique:** Éditoriale / Revue littéraire (Approche A)
 
 ---
 
-## 1. Architecture & Structure de fichiers
+## 1. Architecture & fichiers
 
 ```
 /
-├── index.html                  ← coquille HTML (structure uniquement, aucun texte en dur)
+├── index.html              ← Accueil (hero très fort, invitation)
+├── nicolas.html            ← Présentation incarnée + philosophie
+├── approche.html           ← Les 8 axes, vue d'ensemble de la méthode
+├── neurodiversite.html     ← TDAH / TSA / HPI / masking / fatigue
+├── couples.html            ← Thérapie de couple
+├── corps-voix.html         ← Système nerveux + corps + voix + cranio-sacral
+├── groupes.html            ← Espaces collectifs, groupes de parole
+├── addictions.html         ← Addictions, compulsions, gestion émotionnelle
+├── livres.html             ← Kang + Guide pratique + univers créatif
+├── reserver.html           ← Cal.com embed
 ├── css/
-│   ├── base.css                ← variables CSS, reset, typographie
-│   ├── components.css          ← hero, cards, accordion, quiz, nav
-│   └── animations.css          ← keyframes, scroll reveal classes
+│   ├── base.css            ← variables CSS, reset, typographie
+│   ├── layout.css          ← grid, sections, espacements
+│   └── components.css      ← nav, hero, cartes, footer, accordion
 ├── js/
-│   ├── i18n.js                 ← chargement JSON + substitution dans le DOM
-│   ├── quiz.js                 ← logique du quiz neurodiversité
-│   ├── accordion.js            ← FAQ interactive
-│   └── scroll-animations.js   ← Intersection Observer pour reveal au scroll
+│   ├── i18n.js             ← chargement JSON + substitution [data-i18n]
+│   ├── nav.js              ← menu mobile + scroll behavior
+│   └── animations.js       ← IntersectionObserver, scroll reveal
 ├── i18n/
-│   ├── fr.json                 ← tout le contenu en français
-│   ├── en.json                 ← tout le contenu en anglais
-│   └── es.json                 ← tout le contenu en espagnol
-└── assets/
-    └── images/                 ← photo de Nicolas, illustrations
+│   ├── fr.json
+│   ├── en.json
+│   └── es.json
+└── images/
+    ├── nicolas-portrait.jpeg        ← WhatsApp Image 23.33.52
+    ├── nicolas-groupe.jpeg          ← WhatsApp Image 23.35.28
+    └── illustrations/               ← placeholders → remplis par Nicolas
+        ├── illustration-01.svg
+        ├── illustration-02.svg
+        └── illustration-03.svg
 ```
 
-**Principe clé :** `index.html` ne contient que la structure HTML avec des attributs `data-i18n="key"`. Aucun texte n'est écrit en dur dans le HTML. `i18n.js` lit la langue active (stockée en `localStorage`) et injecte le contenu correspondant au chargement de la page et à chaque changement de langue.
+**Principe i18n :** chaque élément textuel du DOM porte `data-i18n="page.key"`. `i18n.js` charge le JSON de la langue active (`localStorage` → `navigator.language` → fallback `fr`) et injecte le contenu. La langue est commune à toutes les pages.
 
 ---
 
-## 2. Sections de la one-page (dans l'ordre de défilement)
+## 2. Système de design visuel
 
-### 2.1 Navigation (sticky)
-- Logo / nom "Nicolas Ruzette" à gauche
-- Ancres vers chaque section à droite : À propos · Neurodiversité · Approches · Quiz · FAQ · Contact
-- Switcher de langue FR / EN / ES
-- Menu hamburger sur mobile
+### Palette
 
-### 2.2 Hero
-- Photo de Nicolas (pleine largeur ou côte-à-côte avec le texte)
-- Accroche principale orientée neurodiversité (ex. : *"Comprendre votre cerveau, c'est reconnaître votre singularité"*)
-- Sous-titre : psychologue clinicien à Barcelone, consultations en ligne
-- Deux CTA : **Prendre rendez-vous** (ancre Contact) et **En savoir plus** (ancre À propos)
-- Animation d'entrée au chargement (fade + slide)
-
-### 2.3 À propos
-- Texte de présentation : parcours UCL, 10+ ans d'expérience internationale, Barcelone
-- Populations accompagnées : expatriés, LGBTQ+, couples, personnes neurodiverse
-- Badges de certification (Ordre des Psychologues de Belgique)
-- Langues de consultation : FR / EN / ES
-
-### 2.4 Neurodiversité (section phare)
-- Titre pédagogique : *"La neurodiversité, c'est quoi ?"*
-- 3-4 cartes animées : TDAH · Autisme (TSA) · Haut Potentiel (HPI) · Hypersensibilité
-- Chaque carte : icône Lucide + titre + description courte en langage accessible (pas clinique)
-- Ton chaleureux et déstigmatisant
-- Reveal au scroll avec stagger entre les cartes
-
-### 2.5 Approches thérapeutiques
-- 4 piliers présentés comme des blocs visuels :
-  1. Thérapie Centrée sur les Émotions (TCE / EFT)
-  2. Communication Non Violente (CNV)
-  3. Neurobiologie Interpersonnelle (Stephen Porges)
-  4. Thérapie Systémique Brève
-- Chaque pilier : icône + titre + 2-3 phrases d'explication
-- Reveal au scroll
-
-### 2.6 Quiz d'auto-évaluation neurodiversité
-- Titre : *"Et vous ?"* ou *"Mieux se comprendre"*
-- **8 questions** à choix unique : Jamais / Parfois / Souvent / Toujours
-- Thèmes couverts : concentration, hypersensibilité, interactions sociales, pensée en arborescence, régulation émotionnelle, besoin de routine, créativité atypique, fatigue sociale
-- Barre de progression animée (1/8 → 8/8)
-- Transitions entre questions : fade in/out
-- **3 profils de résultat** calculés côté client (Jamais=0, Parfois=1, Souvent=2, Toujours=3 → max 24) :
-  - Score 0-8 : Profil neuronormatif → encouragement, invitation ouverte
-  - Score 9-16 : Profil intermédiaire → invitation à explorer avec un professionnel
-  - Score 17-24 : Profil potentiellement neurodivers → message chaleureux + CTA fort vers contact
-- **Disclaimer** bien visible : *"Ce quiz est un outil de réflexion, pas un diagnostic médical. Seul un professionnel de santé peut poser un diagnostic."*
-- Bouton "Recommencer" après le résultat
-
-### 2.7 FAQ (Accordion)
-- 8 questions/réponses, une seule ouverte à la fois
-- Animation de hauteur fluide (`max-height` CSS transition)
-- Questions suggérées :
-  1. Qu'est-ce que la neurodiversité ?
-  2. Comment se déroule une première séance ?
-  3. Proposez-vous des séances en ligne ?
-  4. Dans quelles langues travaillez-vous ?
-  5. Travaillez-vous avec les couples ?
-  6. Quelle est votre approche avec le TDAH ?
-  7. Combien de séances sont nécessaires ?
-  8. Travaillez-vous avec les enfants ?
-- Toutes les questions/réponses traduites dans les 3 langues via i18n
-
-### 2.8 Contact
-- Adresse : Plaza Urquinaona 10, 2-1, Barcelona 08010
-- Téléphone : +34 634 910 541
-- Horaires : Lundi–Vendredi 9h–21h
-- Icônes de contact : téléphone, WhatsApp, Skype, Zoom, Teams
-- Iframe Google Maps intégrée
-- Bouton d'appel direct sur mobile
-
----
-
-## 3. Système de design visuel
-
-### Palette de couleurs
 ```css
---color-bg:        #FAFAF7;  /* crème, fond principal */
---color-surface:   #FFFFFF;  /* cartes, sections */
---color-primary:   #6B8F71;  /* vert sauge, CTA, accents */
---color-secondary: #C9A96E;  /* or doux, highlights */
---color-text:      #1A1A2E;  /* quasi-noir */
---color-muted:     #6B7280;  /* texte secondaire */
---color-border:    #E5E7EB;  /* séparateurs */
+--color-bg:      #F5F2ED;  /* blanc cassé chaud, fond principal */
+--color-surface: #EDE9E2;  /* sable doux, sections alternées */
+--color-ink:     #1A1714;  /* noir chaud, texte principal */
+--color-muted:   #8A8278;  /* gris brun, texte secondaire */
+--color-accent:  #9B8B78;  /* sable foncé, accents discrets */
+--color-border:  #D8D2C8;  /* séparateurs très discrets */
 ```
+
+Aucune couleur vive. Les photos N&B se posent sur ces teintes comme sur du papier vergé.
 
 ### Typographie
-- **Titres :** Playfair Display (Google Fonts) — élégance, caractère
-- **Corps :** Nunito (Google Fonts) — douceur, lisibilité
 
-### Composants
-- Cartes : `border-radius: 16px`, `box-shadow: 0 4px 20px rgba(0,0,0,0.06)`
-- Bouton primaire : fond `--color-primary`, texte blanc, hover avec lift (`translateY(-2px)`)
-- Séparateurs entre sections : vagues SVG douces (pas de lignes droites)
-- Icônes : Lucide Icons via CDN
+| Usage | Police | Graisse | Notes |
+|---|---|---|---|
+| Grands titres | Cormorant Garamond | 300–400 | letter-spacing négatif (-0.02em) |
+| Titres sections | Cormorant Garamond | 400–600 | |
+| Citations / poétique | Cormorant Garamond Italic | 400 | centré, grande taille |
+| Corps de texte | Inter | 400 | line-height: 1.85 |
+| Labels / navigation | Inter | 400–500 | letter-spacing: 0.08em, minuscules |
 
-### Responsive
-- Mobile-first, breakpoints à `768px` et `1200px`
-- Nav mobile : menu hamburger avec overlay
-- Quiz et accordion 100% fonctionnels sur mobile
+- Taille de base : `17px`
+- Titres héros : `clamp(3.5rem, 8vw, 7rem)`
+- Titres sections : `clamp(2rem, 4vw, 3.5rem)`
+
+### Images
+
+- **Portrait** (`nicolas-portrait.jpeg`) : hero `index.html` et `nicolas.html`, format grand (>50% de la largeur)
+- **Groupe** (`nicolas-groupe.jpeg`) : `groupes.html` et `approche.html`
+- Toujours en N&B, angles nets (pas de `border-radius` sur les photos)
+- Jamais de `box-shadow` sur les images — séparation par l'espace
+
+### Espacements
+
+- Sections desktop : `padding: 8rem 0`
+- Container principal : `max-width: 1100px`, centré
+- Éléments "grands format" (photos hero, citations) : jusqu'à `1400px` ou pleine largeur
+- Grille : CSS Grid natif, pas de framework
+
+### Navigation
+
+5 liens seulement dans la nav principale : **accueil · nicolas · approche · livres · réserver**
+
+Les 6 pages thématiques (neurodiversité, couples, corps & voix, addictions, groupes) sont accessibles depuis `approche.html` — pas dans la nav principale, pour garder une navigation éditoriale épurée.
+
+- Fixe en haut, `position: sticky`
+- Fond `--color-bg` avec `backdrop-filter: blur(8px)` au scroll
+- Liens Inter Regular, `letter-spacing: 0.08em`, minuscules
+- Page active : `border-bottom: 1px solid var(--color-accent)`
+- Switcher langue discret à droite : `FR · EN · ES`
+- Mobile : overlay pleine page, fond `--color-ink`, texte Cormorant blanc, fermeture via bouton × ou touche Échap
 
 ---
 
-## 4. Système i18n
+## 3. Contenu page par page
 
-**Fonctionnement :**
-1. Chaque élément textuel du DOM porte un attribut `data-i18n="section.key"`
-2. Au chargement, `i18n.js` détecte la langue active (`localStorage.getItem('lang')` ou `navigator.language`, fallback `fr`)
-3. Le fichier JSON correspondant est chargé via `fetch('i18n/fr.json')`
-4. Tous les éléments `[data-i18n]` sont mis à jour avec la valeur correspondante
-5. Le switcher de langue appelle `setLanguage('en')` → recharge le JSON → met à jour le DOM
+### `index.html` — Accueil
 
-**Structure JSON type :**
-```json
-{
-  "nav": {
-    "about": "À propos",
-    "neurodiversity": "Neurodiversité",
-    "approaches": "Approches",
-    "quiz": "Quiz",
-    "faq": "FAQ",
-    "contact": "Contact"
-  },
-  "hero": {
-    "tagline": "Comprendre votre cerveau, c'est reconnaître votre singularité.",
-    "subtitle": "Psychologue clinicien à Barcelone · Consultations en ligne",
-    "cta_primary": "Prendre rendez-vous",
-    "cta_secondary": "En savoir plus"
-  },
-  "quiz": {
-    "q1": "J'ai du mal à maintenir mon attention sur une tâche longue.",
-    ...
-  }
-}
+1. **Hero** : photo portrait pleine hauteur (côté droit ou fond) + titre en Cormorant très grand :  
+   *"Un espace où l'on peut cesser de se réparer."*  
+   Sous-titre court en Inter léger. CTA discret : lien vers `reserver.html`.
+2. **Bloc d'invitation** : 3-4 lignes incarnées, pas de liste de services.
+3. **4 portes d'entrée** : grille de cartes sobres (Neurodiversité · Couples · Corps & Voix · Groupes) — un mot fort + une ligne + lien.
+4. **Citation isolée** : Cormorant Italic, grande, beaucoup d'espace, pleine largeur.
+5. **Footer** : navigation secondaire, switcher langue, lien Cal.com.
+
+### `nicolas.html` — À propos
+
+1. Photo portrait pleine colonne + biographie incarnée en regard (pas de CV).
+2. Section philosophie : positionnement central en quelques paragraphes profonds, sans listes à puces.
+3. Badges discrets : UCLouvain, Ordre des Psychologues de Belgique, 10+ ans.
+4. Placeholder illustration personnelle.
+5. Langues de consultation (FR / EN / ES).
+
+### `approche.html` — L'approche
+
+1. Introduction sur la philosophie : ralentissement, permission, fin de la performance, arrêt de la course intérieure.
+2. Encart dédié : *Ce que l'IA ne peut pas remplacer* — présence réelle, régulation, qualité de rencontre.
+3. 8 axes listés comme table des matières éditoriale, numérotés, liens vers pages dédiées :
+   1. Neurodivergence
+   2. Régulation du système nerveux
+   3. Corps & conscience corporelle
+   4. Voix & expression
+   5. Thérapie de couple → `couples.html`
+   6. Addictions & gestion émotionnelle → `addictions.html`
+   7. Présence & non-dualité (woven through, pas de page isolée)
+   8. Groupes & espaces collectifs → `groupes.html`
+4. Photo groupe.
+
+### `neurodiversite.html`
+
+1. Texte long et nuancé sur le vécu neurodivers : masking, fatigue nerveuse, surcharge, sentiment de décalage, anxiété existentielle.
+2. Profils décrits de l'intérieur (pas cliniquement) : TDAH, TSA/Asperger, HPI, Hypersensibilité.
+3. **Invitation réflexive** : texte sobre — *"Si certains de ces vécus vous parlent…"* — sans quiz scoré (contraire à la philosophie du site).
+4. Placeholder illustration Nicolas.
+5. CTA vers `reserver.html`.
+
+### `couples.html`
+
+1. Introduction : incompréhension mutuelle des fonctionnements, pas d'approche "chercher les blessures d'enfance".
+2. Ce que le travail propose : rendre visibles les mécanismes, régulation mutuelle, sortir des boucles de réaction.
+3. Mention des différences neuropsychologiques dans le couple.
+4. CTA réservation.
+
+### `corps-voix.html`
+
+1. **Corps & système nerveux** : théorie polyvagale, ancrage, fatigue chronique, travail crânio-sacral.
+2. **Voix & expression** : groupes de libération de la voix, souffle, son, spontanéité — jamais performatif.
+3. Placeholder illustration.
+4. CTA réservation.
+
+### `groupes.html`
+
+1. Photo groupe de Nicolas.
+2. Description des espaces : sécurité, simplicité, absence de jugement, pas de masking nécessaire.
+3. Types de groupes proposés : neurodivergence, parole, voix.
+4. CTA contact / réservation.
+
+### `addictions.html`
+
+1. Introduction non moraliste : les addictions et compulsions comme tentatives de régulation, stratégies de survie.
+2. Problématiques couvertes : addictions comportementales, obsessions, anxiété relationnelle, dépendance affective, difficulté à gérer les émotions.
+3. Ce que le travail propose : comprendre ce que le symptôme tente de résoudre, sortir de la lutte contre soi-même.
+4. Placeholder illustration.
+5. CTA réservation.
+
+### `livres.html`
+
+1. **Kang – El parto neurodivergente** : placeholder couverture + description poétique courte.
+2. **Guide pratique pour souffrir** : placeholder couverture + description.
+3. Espace pour fragments d'écriture ou extraits.
+4. Univers créatif de Nicolas : lien entre écriture et approche thérapeutique.
+
+### `reserver.html`
+
+1. Texte d'accueil très court (2-3 lignes humaines avant le widget).
+2. **Cal.com embed** pleine largeur — couleurs configurées : fond `#F5F2ED`, texte `#1A1714`.
+3. Informations pratiques : adresse Barcelone, langues, horaires.
+
+---
+
+## 4. Fonctionnalités interactives
+
+### Animations au scroll
+
+- `IntersectionObserver` sur éléments `.reveal` : `opacity 0→1` + `translateY(20px→0)`, durée `0.7s ease`
+- Délais échelonnés sur grilles (`.reveal--delay-1`, `--delay-2`, `--delay-3`)
+- **`prefers-reduced-motion`** : toutes animations désactivées — essentiel pour la clientèle neurodiverse
+
+### Navigation mobile
+
+- Hamburger → overlay pleine page fond `--color-ink`
+- Liens en Cormorant grand, blanc
+- Fermeture : bouton × ou touche `Escape`
+- `aria-expanded` géré correctement pour l'accessibilité
+
+### Cal.com embed (`reserver.html` uniquement)
+
+```html
+<div id="cal-booking"></div>
+<script>
+  (function(C,A,L){
+    let p=function(a,ar){a.q.push(ar)};
+    let d=C.document;
+    C.Cal=C.Cal||function(){let cal=C.Cal;let ar=arguments;
+      if(!cal.loaded){cal.ns={};cal.q=cal.q||[];
+      d.head.appendChild(d.createElement("script")).src=A;
+      cal.loaded=true}if(ar[0]===L){const api=function(){p(api,arguments)};
+      const namespace=ar[1];api.q=api.q||[];
+      typeof namespace==="string"?cal.ns[namespace]=api:cal.q.push(ar);
+      return}p(cal,ar)};
+  })(window,"https://app.cal.com/embed/embed.js","init");
+  Cal("init", {origin: "https://cal.com"});
+  Cal("inline", {
+    elementOrSelector: "#cal-booking",
+    calLink: "nicolas-ruzette",
+    config: { theme: "light" }
+  });
+</script>
 ```
 
----
+### Système i18n
 
-## 5. Animations
+```javascript
+// Flux : localStorage → navigator.language → 'fr'
+// i18n.js charge i18n/{lang}.json via fetch()
+// Tous les [data-i18n="key"] sont mis à jour
+// t('key') disponible globalement pour le JS dynamique
+```
 
-**Scroll reveal :**
-- `IntersectionObserver` surveille tous les éléments avec la classe `.reveal`
-- Au passage dans le viewport → ajout de `.visible` → transition CSS `opacity + translateY`
-- Stagger sur les groupes de cartes via `transition-delay` échelonné
-
-**Accessibilité :**
-- `@media (prefers-reduced-motion: reduce)` désactive toutes les animations CSS et JS
-- Critique pour la clientèle neurodiverse (certains profils TDAH/TSA sont sensibles au mouvement)
-
-**Quiz :**
-- Transitions entre questions : `opacity: 0 → 1` avec `transform: translateX`
-- Barre de progression : `width` animé via CSS `transition`
+Structure JSON : clés organisées par page (`index.*`, `nicolas.*`, `neuro.*`, etc.)
 
 ---
 
-## 6. Déploiement
+## 5. Philosophie de design — règles à respecter
 
-Site 100% statique, déployable sur :
-- GitHub Pages (gratuit)
-- Netlify / Vercel (gratuit, avec HTTPS automatique)
-- N'importe quel hébergement FTP classique
-
-**Développement local :** Nécessite un serveur HTTP local pour les `fetch()` i18n (ex. Live Server dans VS Code, ou `python -m http.server`).
+- **Jamais de `box-shadow`** sur les images
+- **Jamais de `border-radius`** sur les photos
+- **Jamais de couleurs vives** dans les accents
+- **Aucun emoji** dans le contenu
+- **Pas de listes à puces** dans les textes incarnés — uniquement des paragraphes
+- **Pas de badges colorés** — les certifications en texte sobre uniquement
+- **Espace > effet** — un élément isolé sur fond vide vaut mieux qu'un effet visuel
+- Les illustrations de Nicolas doivent sembler **intégrées naturellement**, jamais décoratives
 
 ---
 
-## 7. Contenu hors scope
+## 6. Ce qui est hors scope (V1)
 
-- Formulaire de contact fonctionnel (nécessiterait un backend ou service tiers comme Formspree — à ajouter en V2 si souhaité)
-- Blog / articles
-- Système de réservation en ligne
+- Formulaire de contact fonctionnel (Cal.com couvre ce besoin)
+- Blog / flux d'articles
 - Authentification
+- Couvertures des livres (placeholders uniquement — Nicolas fournira les images)
+- Illustrations finales (emplacements réservés — Nicolas les fournira)
