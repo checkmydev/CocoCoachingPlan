@@ -1,0 +1,100 @@
+{
+  "nav": { "logo": "Nicolas Ruzette", "home": "accueil", "nicolas": "nicolas", "approche": "approche", "livres": "livres", "reserver": "réserver" },
+  "footer": {
+    "location": "Barcelone · Plaza Urquinaona 10",
+    "links": { "nicolas": "nicolas", "approche": "approche", "livres": "livres", "reserver": "réserver" }
+  },
+  "index": {
+    "eyebrow": "Psychologue clinicien · Barcelone",
+    "title": "Un espace où l'on peut cesser de se réparer.",
+    "subtitle": "Accompagnement en français, anglais et espagnol. Consultations individuelles, en couple, en ligne.",
+    "cta": "prendre rendez-vous",
+    "quote": "La souffrance diminue non pas quand on la combat, mais quand on commence à la comprendre.",
+    "card1_title": "Neurodiversité", "card1_desc": "TDAH, autisme, HPI, hypersensibilité, masking, fatigue nerveuse.", "card1_arrow": "découvrir",
+    "card2_title": "Thérapie de couple", "card2_desc": "Comprendre les fonctionnements respectifs, sortir des boucles de réaction.", "card2_arrow": "découvrir",
+    "card3_title": "Corps & Voix", "card3_desc": "Système nerveux, ancrage, respiration, expression et présence.", "card3_arrow": "découvrir",
+    "card4_title": "Espaces collectifs", "card4_desc": "Groupes de parole et de voix pour personnes neuro-sensibles.", "card4_arrow": "découvrir"
+  },
+  "nicolas": {
+    "eyebrow": "À propos", "title": "Psychologue clinicien et thérapeute.",
+    "p1": "Diplômé de l'UCLouvain, je travaille depuis plus de dix ans à l'intersection de la neuropsychologie, de la thérapie systémique et de la diversité humaine. Ce qui m'a toujours intéressé, c'est moins le diagnostic que le fonctionnement — la façon dont chaque personne habite son corps, organise ses émotions, construit ses relations.",
+    "p2": "J'ai exercé en Belgique, puis me suis installé à Barcelone. J'accompagne des individus et des couples issus de milieux très divers : expatriés, personnes LGBTQ+, profils neurodivergents, personnes traversant des questionnements existentiels profonds.",
+    "p3": "Mon approche est intégrative. Je m'appuie sur la thérapie centrée sur les émotions, la neurobiologie interpersonnelle, la CNV et le travail somatique — non comme des méthodes à appliquer, mais comme des langages pour comprendre ce qui se passe vraiment.",
+    "p4": "Ce que je cherche à offrir, c'est un espace où il n'est pas nécessaire de performer, d'expliquer ou de se justifier. Un espace où quelque chose peut enfin se déposer.",
+    "langs_title": "Langues de consultation",
+    "badge_ucl": "UCLouvain", "badge_ordre": "Ordre des Psychologues de Belgique", "badge_years": "10+ ans d'expérience"
+  },
+  "approche": {
+    "eyebrow": "Approche", "title": "Arrêter la course.",
+    "lead": "Ce travail ne vise pas à devenir meilleur, à performer davantage ou à réparer une identité défectueuse. Il s'agit de quelque chose de plus simple et de plus profond : retrouver un rapport plus vivant à soi-même.",
+    "p1": "La souffrance psychologique est souvent entretenue par une mauvaise compréhension de son propre fonctionnement — et par des stratégies de survie devenues automatiques. Ce qui ressemble à un problème est souvent une tentative de solution.",
+    "p2": "Ce que je propose, c'est de comprendre ces mécanismes sans les juger, d'apprendre à se réguler, et de sortir progressivement des cycles de lutte intérieure — pour retrouver plus de simplicité, de présence et de liberté.",
+    "ai_title": "Ce que l'IA ne peut pas remplacer",
+    "ai_body": "Une qualité de présence réelle. Une écoute vivante qui s'adapte à chaque instant. Un système nerveux régulé qui en régule un autre. La capacité de créer un espace où quelque chose peut se déposer — non parce qu'une technique est appliquée, mais parce qu'une vraie rencontre a lieu.",
+    "axes_title": "Axes de travail",
+    "axis1": "Neurodivergence", "axis2": "Régulation du système nerveux", "axis3": "Corps & conscience corporelle",
+    "axis4": "Voix & expression", "axis5": "Thérapie de couple", "axis6": "Addictions & gestion émotionnelle", "axis7": "Groupes & espaces collectifs"
+  },
+  "neuro": {
+    "eyebrow": "Neurodiversité", "title": "Un cerveau différent n'est pas un cerveau défaillant.",
+    "lead": "Si vous avez grandi avec le sentiment de fonctionner autrement — de penser trop vite, de ressentir trop intensément, de vous épuiser à vous adapter — ce que vous vivez a peut-être un nom.",
+    "p1": "La neurodiversité désigne la variabilité naturelle du fonctionnement neurologique humain. Ce n'est pas une pathologie. Ce n'est pas non plus une identité à revendiquer à tout prix. C'est une façon différente de traiter l'information, d'interagir avec le monde, de ressentir.",
+    "p2": "Beaucoup de personnes neurodivergentes arrivent en thérapie épuisées — non pas par leur fonctionnement lui-même, mais par des années à masquer, à s'adapter, à tenter de correspondre à des normes qui n'ont pas été faites pour elles. Ce masking permanent a un coût énorme.",
+    "p3": "Le travail thérapeutique ici ne cherche pas à normaliser. Il s'agit de comprendre son propre fonctionnement, de développer des stratégies de régulation adaptées, et de retrouver un rapport à soi moins conflictuel.",
+    "tdah_title": "TDAH", "tdah_body": "Attention fluctuante, pensée non-linéaire, hyperfocus, impulsivité, difficulté à initier ou à terminer — et souvent, une créativité et une intensité remarquables. Pas un manque de volonté.",
+    "tsa_title": "Autisme · Asperger", "tsa_body": "Traitement sensoriel intense, besoin de prévisibilité, façons d'interagir qui divergent des normes sociales — et une capacité de connexion profonde avec ce qui compte vraiment.",
+    "hpi_title": "Haut Potentiel", "hpi_body": "Un traitement plus rapide et plus dense de l'information. Richesse émotionnelle, questionnements existentiels précoces, sentiment de décalage — souvent mal compris.",
+    "hyper_title": "Hypersensibilité", "hyper_body": "Une perception amplifiée — sensorielle, émotionnelle, relationnelle. Une richesse intérieure qui peut aussi devenir source d'épuisement quand elle n'est pas comprise.",
+    "invitation": "Si certains de ces vécus vous parlent, une conversation peut suffire à commencer à les démêler."
+  },
+  "couples": {
+    "eyebrow": "Thérapie de couple", "title": "Beaucoup de conflits viennent d'une incompréhension mutuelle du fonctionnement de l'autre.",
+    "lead": "Pas d'une mauvaise volonté. Pas d'un amour insuffisant. D'une incompréhension profonde des tempéraments, des systèmes nerveux, des styles relationnels.",
+    "p1": "Mon approche ne consiste pas à fouiller indéfiniment le passé ou à chercher qui a tort. Elle s'intéresse à ce qui se passe maintenant dans l'interaction — aux patterns automatiques, aux boucles de réaction, aux façons dont chacun régule ses émotions dans la relation.",
+    "p2": "Quand deux personnes commencent à comprendre leur propre fonctionnement et celui de l'autre, quelque chose change. Pas magiquement — mais profondément.",
+    "p3": "Je travaille avec des couples de toutes configurations : hétérosexuels, LGBTQ+, polyamoureux, binationaux. Et souvent, avec des couples où l'un ou les deux partenaires ont un profil neurodivers.",
+    "cta": "prendre rendez-vous"
+  },
+  "corps": {
+    "eyebrow": "Corps & Voix", "title": "Le corps sait des choses que le mental ne formule pas encore.",
+    "nervous_title": "Système nerveux & régulation",
+    "nervous_body": "Beaucoup de souffrances psychologiques prennent racine dans un système nerveux chroniquement activé — en alerte, en fuite, ou au contraire figé. Le travail somatique consiste à apprendre à reconnaître ces états, à les réguler, à développer une fenêtre de tolérance plus large. J'intègre des éléments inspirés du travail crânio-sacral — une écoute subtile du corps et du système nerveux — pour accompagner ce processus.",
+    "voice_title": "Voix & expression",
+    "voice_body": "La voix est l'un des accès les plus directs au système nerveux. Quand elle est libre, quelque chose s'ouvre. Je propose des espaces de travail autour de la voix — souffle, son, présence, spontanéité — non comme performance, mais comme retour à quelque chose de plus vivant.",
+    "cta": "prendre rendez-vous"
+  },
+  "addictions": {
+    "eyebrow": "Addictions & compulsions", "title": "Ce que nous appelons addiction est souvent une tentative de régulation.",
+    "lead": "Une façon de gérer l'insupportable. De fuir une réalité intérieure trop lourde. De trouver du soulagement, du contrôle, ou simplement un moment de répit.",
+    "p1": "Les comportements compulsifs — qu'il s'agisse de substances, d'écrans, de relation, de travail ou de pensées obsessionnelles — ne sont pas des défauts de caractère. Ce sont des stratégies de survie devenues automatiques. Comprendre ce qu'elles tentent de résoudre change tout.",
+    "p2": "L'approche que je propose ne consiste pas à combattre le symptôme, mais à comprendre ce qu'il protège. À développer d'autres façons de se réguler. À sortir progressivement de la lutte permanente contre soi-même.",
+    "p3": "Ce travail inclut également la gestion émotionnelle au sens large : difficulté à supporter l'incertitude, anxiété relationnelle, dépendance affective, besoin de contrôle.",
+    "cta": "prendre rendez-vous"
+  },
+  "groupes": {
+    "eyebrow": "Espaces collectifs", "title": "Des espaces où l'on peut arrêter de jouer un rôle.",
+    "lead": "Pour beaucoup de personnes neuro-sensibles, le groupe est l'endroit où elles ont le plus souffert. Ce que je propose est différent.",
+    "p1": "Des espaces petits, sécurisés, avec une attention explicite portée à la sécurité de chacun. Pas de jugement. Pas de performance. Pas de nécessité de masquer.",
+    "types_title": "Ce que je propose",
+    "type1_title": "Groupes neurodivergence", "type1_body": "Espaces de partage autour du vécu neurodivers — comprendre son fonctionnement, rencontrer d'autres personnes qui fonctionnent différemment, sortir de l'isolement.",
+    "type2_title": "Groupes de voix", "type2_body": "Exploration de la voix comme outil de présence et de régulation. Souffle, son, spontanéité — dans un cadre doux et sans jugement.",
+    "type3_title": "Groupes de parole", "type3_body": "Espaces de parole ouverts autour de thèmes existentiels : sentiment de décalage, quête de sens, épuisement de l'adaptation constante.",
+    "cta": "me contacter pour les prochaines dates"
+  },
+  "livres": {
+    "eyebrow": "Livres", "title": "L'écriture comme autre façon de penser.",
+    "lead": "Ces livres ne sont pas des manuels. Ce sont des tentatives de mettre en mots ce qui se passe dans l'espace thérapeutique — et au-delà.",
+    "book1_lang": "Espagnol", "book1_title": "Kang", "book1_subtitle": "El parto neurodivergente",
+    "book1_desc": "Un récit à la frontière entre psychologie et fiction — qui explore le vécu de la neurodivergence de l'intérieur, avec une attention portée à la langue, au corps et à la transformation.",
+    "book2_lang": "Français", "book2_title": "Guide pratique pour souffrir", "book2_subtitle": "",
+    "book2_desc": "Un livre qui prend la souffrance au sérieux — sans la pathologiser, sans promettre de la guérir. Une exploration de ce que nous faisons avec ce qui nous fait mal, et de ce qui se passe quand on arrête de lui faire la guerre."
+  },
+  "reserver": {
+    "eyebrow": "Réservation", "title": "Prendre rendez-vous.",
+    "lead": "Choisissez un moment qui vous convient. La première séance est une rencontre — sans engagement.",
+    "address_label": "Cabinet", "address": "Plaza Urquinaona 10, 2-1 · Barcelona 08010",
+    "phone_label": "Téléphone", "phone": "+34 634 910 541",
+    "hours_label": "Horaires", "hours": "Lundi – Vendredi · 9h – 21h",
+    "online_label": "En ligne", "online": "Zoom · Teams · Skype · WhatsApp"
+  }
+}
