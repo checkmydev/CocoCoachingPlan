@@ -213,3 +213,81 @@ def test_write_outputs_creates_files(tmp_path):
 
     assert (tmp_path / "mo_lateness_predictions_2026-05-28.csv").exists()
     assert (tmp_path / "mo_demand_gap_2026-05-28.csv").exists()
+
+
+def _make_full_mo(n_hist=80, n_open=20):
+    rng = np.random.default_rng(0)
+    rows = []
+    for i in range(n_hist + n_open):
+        is_open = i >= n_hist
+        created  = pd.Timestamp("2020-01-01") + pd.Timedelta(days=int(rng.integers(0, 1200)))
+        needed   = created + pd.Timedelta(days=int(rng.integers(10, 90)))
+        sched    = needed - pd.Timedelta(days=int(rng.integers(0, 15)))
+        if not is_open:
+            delay = int(rng.integers(-3, 20))
+            recv  = needed + pd.Timedelta(days=delay)
+        else:
+            recv  = pd.NaT
+        rows.append({
+            "MOCreatedDate": created, "NeededDate": needed,
+            "ScheduledDate": sched,   "LastReceiptDate": recv,
+            "ItemOrderedQuantity": float(rng.integers(1, 50)),
+            "ReceiptQuantity": 0.0 if is_open else float(rng.integers(1, 50)),
+            "WorkCenter": rng.choice(["2500", "2750"]),
+            "Planner": "MBO", "FamilyItemNumber": rng.choice(["ML155SG", "ML355S"]),
+            "MOLineStatus": "3" if is_open else "2",
+            "MOStatus": 1 if is_open else 2,
+            "MONumber": f"MBO{i:05d}", "ItemNumber": "991.0000.00",
+        })
+    return pd.DataFrame(rows)
+
+
+def _make_full_sales(n=500):
+    rng = np.random.default_rng(1)
+    rows = []
+    for _ in range(n):
+        year  = int(rng.integers(2020, 2026))
+        month = int(rng.integers(1, 13))
+        rows.append({
+            "FSFamilyItemNumber": rng.choice(["ML155SG", "ML355S"]),
+            "Year": year, "Month": month,
+            "Quantity": float(rng.integers(1, 30)),
+        })
+    return pd.DataFrame(rows)
+
+
+def test_full_pipeline(tmp_path):
+    mo    = _make_full_mo()
+    sales = _make_full_sales()
+
+    mo_path    = str(tmp_path / "MO.csv")
+    sales_path = str(tmp_path / "Sales.csv")
+    mo.to_csv(mo_path,    sep=";", index=False)
+    sales.to_csv(sales_path, sep=";", index=False)
+
+    mo_loaded, sales_loaded = mp.load_data(mo_path, sales_path)
+
+    # Modèle lateness
+    hist = mo_loaded[(mo_loaded["MOStatus"].astype(str) == "2") & mo_loaded["LastReceiptDate"].notna()].copy()
+    opn  = mo_loaded[(pd.to_numeric(mo_loaded["MOLineStatus"], errors="coerce").fillna(0).astype(int) < 5) & (mo_loaded["ReceiptQuantity"] < mo_loaded["ItemOrderedQuantity"])].copy()
+    X = mp.build_lateness_features(hist)
+    y = mp.make_lateness_label(hist)
+    model = mp.train_lateness_model(X, y, cv=False)
+    late_df = mp.predict_lateness(model, opn)
+
+    assert len(late_df) == len(opn)
+    assert "LateProbability" in late_df.columns
+
+    # Demand forecast
+    series = mp.build_demand_series(sales_loaded, "FSFamilyItemNumber")
+    forecast = mp.forecast_demand(series, forecast_months=3, min_months=12, test_months=6,
+                                  segment_col="FamilyItemNumber")
+    gap = mp.compute_gap(forecast, opn)
+
+    assert "ProductionGap" in gap.columns
+    assert not gap["ForecastedDemand"].isna().all()
+
+    # Outputs
+    mp.write_outputs(late_df, gap, str(tmp_path / "out"), "2026-05-28")
+    assert (tmp_path / "out" / "mo_lateness_predictions_2026-05-28.csv").exists()
+    assert (tmp_path / "out" / "mo_demand_gap_2026-05-28.csv").exists()
