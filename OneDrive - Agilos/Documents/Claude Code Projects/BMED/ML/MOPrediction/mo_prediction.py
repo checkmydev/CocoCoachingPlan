@@ -254,6 +254,27 @@ def train_lateness_model(X: pd.DataFrame, y: pd.Series, cv: bool = True) -> Pipe
     return model
 
 
+# ---------------------------------------------------------------------------
+# DEMAND AGGREGATION
+# ---------------------------------------------------------------------------
+def build_demand_series(sales: pd.DataFrame, segment_col: str) -> dict:
+    """Agrège les ventes par segment + mois. Retourne {segment_value: DataFrame(ds, y, _Year, _Month)}."""
+    series = {}
+    grouped = sales.groupby([segment_col, "_Year", "_Month"])["Quantity"].sum().reset_index()
+    grouped = grouped.rename(columns={"Quantity": "y", "_Year": "_Year", "_Month": "_Month"})
+    grouped["ds"] = pd.to_datetime(
+        grouped["_Year"].astype(int).astype(str) + "-" +
+        grouped["_Month"].astype(int).astype(str).str.zfill(2) + "-01"
+    )
+    grouped = grouped.sort_values(["ds"]).reset_index(drop=True)
+
+    for seg_val, grp in grouped.groupby(segment_col):
+        series[seg_val] = grp[["ds", "y", "_Year", "_Month"]].reset_index(drop=True)
+
+    log.info("Demande agrégée : %d segments (colonne '%s')", len(series), segment_col)
+    return series
+
+
 def predict_lateness(model: Pipeline, open_mo: pd.DataFrame) -> pd.DataFrame:
     """Applique le modèle aux MOs ouverts. Retourne un DataFrame avec LateProbability."""
     if len(open_mo) == 0:

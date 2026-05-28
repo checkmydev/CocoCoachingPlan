@@ -134,3 +134,20 @@ def test_predict_lateness_output_shape():
     assert "LateRisk" in result.columns
     assert result["LateProbability"].between(0, 1).all()
     assert set(result["LateRisk"].unique()).issubset({"Low", "Medium", "High"})
+
+
+def test_build_demand_series():
+    sales = pd.DataFrame({
+        "FSFamilyItemNumber": ["ML155SG", "ML155SG", "ML355S"],
+        "_Year":  [2022, 2022, 2022],
+        "_Month": [1,    2,    1   ],
+        "Quantity": [10.0, 15.0, 5.0],
+    })
+    series = mp.build_demand_series(sales, "FSFamilyItemNumber")
+
+    assert "ML155SG" in series
+    assert "ML355S"  in series
+    ml155 = series["ML155SG"]
+    assert len(ml155) == 2
+    assert ml155.loc[ml155["_Month"] == 1, "y"].iloc[0] == pytest.approx(10.0)
+    assert "ds" in ml155.columns
