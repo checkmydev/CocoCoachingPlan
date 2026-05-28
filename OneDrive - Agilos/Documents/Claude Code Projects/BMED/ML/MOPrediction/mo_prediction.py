@@ -259,9 +259,15 @@ def train_lateness_model(X: pd.DataFrame, y: pd.Series, cv: bool = True) -> Pipe
 # ---------------------------------------------------------------------------
 def build_demand_series(sales: pd.DataFrame, segment_col: str) -> dict:
     """Agrège les ventes par segment + mois. Retourne {segment_value: DataFrame(ds, y, _Year, _Month)}."""
+    # Avertir et exclure les lignes avec _Year/_Month manquants
+    null_mask = sales["_Year"].isna() | sales["_Month"].isna()
+    if null_mask.any():
+        log.warning("build_demand_series : %d lignes ignorées (_Year/_Month nuls)", null_mask.sum())
+    sales = sales[~null_mask]
+
     series = {}
     grouped = sales.groupby([segment_col, "_Year", "_Month"])["Quantity"].sum().reset_index()
-    grouped = grouped.rename(columns={"Quantity": "y", "_Year": "_Year", "_Month": "_Month"})
+    grouped = grouped.rename(columns={"Quantity": "y"})
     grouped["ds"] = pd.to_datetime(
         grouped["_Year"].astype(int).astype(str) + "-" +
         grouped["_Month"].astype(int).astype(str).str.zfill(2) + "-01"
@@ -269,7 +275,14 @@ def build_demand_series(sales: pd.DataFrame, segment_col: str) -> dict:
     grouped = grouped.sort_values(["ds"]).reset_index(drop=True)
 
     for seg_val, grp in grouped.groupby(segment_col):
-        series[seg_val] = grp[["ds", "y", "_Year", "_Month"]].reset_index(drop=True)
+        grp = grp[["ds", "y"]].reset_index(drop=True)
+        # Réindexer sur une plage mensuelle complète pour corriger les lags sur mois manquants
+        full_idx = pd.date_range(grp["ds"].min(), grp["ds"].max(), freq="MS")
+        grp = grp.set_index("ds").reindex(full_idx).rename_axis("ds").reset_index()
+        grp["y"] = grp["y"].fillna(0.0)
+        grp["_Year"]  = grp["ds"].dt.year
+        grp["_Month"] = grp["ds"].dt.month
+        series[seg_val] = grp[["ds", "y", "_Year", "_Month"]]
 
     log.info("Demande agrégée : %d segments (colonne '%s')", len(series), segment_col)
     return series
@@ -327,8 +340,8 @@ def _select_best_model(train: pd.DataFrame, test: pd.DataFrame):
             log.warning("    %s échoué : %s", name, e)
 
     if best_model is not None:
-        X_all = pd.concat([X_tr, X_te])
-        y_all = pd.concat([y_tr, y_te])
+        X_all = pd.concat([X_tr, X_te]).reset_index(drop=True)
+        y_all = pd.concat([y_tr, y_te]).reset_index(drop=True)
         best_model.fit(X_all, y_all)
 
     return best_model, best_mae
@@ -363,7 +376,8 @@ def _forecast_recursive(model, history: list, n_months: int,
 
 
 def forecast_demand(series_dict: dict, forecast_months: int,
-                    min_months: int, test_months: int) -> pd.DataFrame:
+                    min_months: int, test_months: int,
+                    segment_col: str = MO_SEGMENT_COL) -> pd.DataFrame:
     """Lance la prévision pour chaque segment. Retourne un DataFrame consolidé."""
     all_preds = []
     for seg_val, df in series_dict.items():
@@ -376,7 +390,7 @@ def forecast_demand(series_dict: dict, forecast_months: int,
             for i in range(forecast_months):
                 fd = last_date + pd.DateOffset(months=i + 1)
                 all_preds.append({
-                    MO_SEGMENT_COL: seg_val,
+                    segment_col: seg_val,
                     "_Year": fd.year, "_Month": fd.month,
                     "ForecastedDemand": round(avg, 2),
                 })
@@ -386,19 +400,27 @@ def forecast_demand(series_dict: dict, forecast_months: int,
         split  = len(df_lag) - test_months
         train  = df_lag.iloc[:split]
         test   = df_lag.iloc[split:]
+        # Sous-ensemble valide pour évaluation ML (sans NaN dans les lags)
+        test_valid = test.dropna(subset=_LAG_COLS)
 
         # Essai Prophet si disponible et assez de données
         prophet_model, prophet_mae = None, float("inf")
-        if HAS_PROPHET and len(df) >= 36:
+        if HAS_PROPHET and len(df) >= 36 and not test_valid.empty:
             try:
                 m = Prophet(yearly_seasonality=True, weekly_seasonality=False,
                             daily_seasonality=False, changepoint_prior_scale=0.05)
-                m.fit(df.rename(columns={"ds": "ds", "y": "y"})[["ds", "y"]])
-                future = m.make_future_dataframe(periods=test_months, freq="MS")
-                fc = m.predict(future).tail(test_months)
-                prophet_mae = mean_absolute_error(test["y"].values, fc["yhat"].values)
-                prophet_model = m
-                log.info("    prophet  MAE=%.2f", prophet_mae)
+                m.fit(df[["ds", "y"]])
+                future = m.make_future_dataframe(periods=len(df) + test_months, freq="MS")
+                fc = m.predict(future)
+                # Aligner Prophet sur les mêmes mois que test_valid (équitable vs ML)
+                valid_periods = test_valid["ds"].dt.to_period("M")
+                fc_aligned = fc[fc["ds"].dt.to_period("M").isin(valid_periods)]
+                if len(fc_aligned) == len(test_valid):
+                    prophet_mae = mean_absolute_error(
+                        test_valid["y"].values, fc_aligned["yhat"].values
+                    )
+                    prophet_model = m
+                    log.info("    prophet  MAE=%.2f", prophet_mae)
             except Exception as e:
                 log.warning("    prophet échoué : %s", e)
 
@@ -415,19 +437,19 @@ def forecast_demand(series_dict: dict, forecast_months: int,
             rows["yhat"] = rows["yhat"].clip(lower=0).round(2)
             for _, r in rows.iterrows():
                 all_preds.append({
-                    MO_SEGMENT_COL: seg_val,
+                    segment_col: seg_val,
                     "_Year": r["ds"].year, "_Month": r["ds"].month,
                     "ForecastedDemand": r["yhat"],
                 })
         elif best_model is not None:
             preds_df = _forecast_recursive(best_model, history, forecast_months, last_date)
-            preds_df[MO_SEGMENT_COL] = seg_val
+            preds_df[segment_col] = seg_val
             all_preds.extend(preds_df.to_dict("records"))
         else:
             log.warning("  → Aucun modèle disponible pour %s", seg_val)
 
     if not all_preds:
-        return pd.DataFrame(columns=[MO_SEGMENT_COL, "_Year", "_Month", "ForecastedDemand"])
+        return pd.DataFrame(columns=[segment_col, "_Year", "_Month", "ForecastedDemand"])
     return pd.DataFrame(all_preds)
 
 
@@ -436,11 +458,17 @@ def forecast_demand(series_dict: dict, forecast_months: int,
 # ---------------------------------------------------------------------------
 def compute_gap(forecast_df: pd.DataFrame, open_mo: pd.DataFrame) -> pd.DataFrame:
     """Joint les prévisions avec les MOs déjà planifiés pour calculer le ProductionGap."""
+    def _zero_gap(df):
+        df = df.copy()
+        df["PlannedMOQty"] = 0.0
+        df["ProductionGap"] = df["ForecastedDemand"]
+        return df
+
     if open_mo.empty or "NeededDate" not in open_mo.columns:
-        forecast_df = forecast_df.copy()
-        forecast_df["PlannedMOQty"] = 0.0
-        forecast_df["ProductionGap"] = forecast_df["ForecastedDemand"]
-        return forecast_df
+        return _zero_gap(forecast_df)
+    if MO_SEGMENT_COL not in open_mo.columns:
+        log.warning("compute_gap : colonne '%s' absente de open_mo — PlannedMOQty = 0", MO_SEGMENT_COL)
+        return _zero_gap(forecast_df)
 
     mo_agg = open_mo.copy()
     mo_agg["_Year"]  = mo_agg["NeededDate"].dt.year
