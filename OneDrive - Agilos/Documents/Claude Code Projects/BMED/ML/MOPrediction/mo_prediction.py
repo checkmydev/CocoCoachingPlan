@@ -177,3 +177,48 @@ def load_data(mo_path: str, sales_path: str):
 
     log.info("MO chargé : %d lignes | Sales chargé : %d lignes", len(mo), len(sales))
     return mo, sales
+
+
+# ---------------------------------------------------------------------------
+# FEATURE ENGINEERING
+# ---------------------------------------------------------------------------
+def build_lateness_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Calcule les features pour le modèle de prédiction de retard.
+
+    Retourne un DataFrame avec les colonnes :
+      - NUMERIC_FEATURES: DaysOrderedToNeeded, DaysScheduledToNeeded,
+                          ItemOrderedQuantity, ReceivedPct, NeededMonth, NeededQuarter
+      - CATEGORICAL_FEATURES: WorkCenter, Planner, FamilyItemNumber
+    """
+    feat = pd.DataFrame(index=df.index)
+
+    # Numeric features
+    feat["DaysOrderedToNeeded"]   = (df["NeededDate"] - df["MOCreatedDate"]).dt.days
+    feat["DaysScheduledToNeeded"] = (df["NeededDate"] - df["ScheduledDate"]).dt.days
+    feat["ItemOrderedQuantity"]   = pd.to_numeric(df["ItemOrderedQuantity"], errors="coerce")
+
+    # ReceivedPct = ReceiptQuantity / ItemOrderedQuantity
+    ordered  = pd.to_numeric(df["ItemOrderedQuantity"], errors="coerce").replace(0, np.nan)
+    received = pd.to_numeric(df["ReceiptQuantity"],     errors="coerce").fillna(0)
+    feat["ReceivedPct"]   = (received / ordered).fillna(0).clip(0, 1)
+
+    # Temporal features
+    feat["NeededMonth"]   = df["NeededDate"].dt.month
+    feat["NeededQuarter"] = df["NeededDate"].dt.quarter
+
+    # Categorical features
+    feat["WorkCenter"]       = df["WorkCenter"].astype(str).fillna("UNKNOWN")
+    feat["Planner"]          = df["Planner"].astype(str).fillna("UNKNOWN")
+    feat["FamilyItemNumber"] = (
+        df["FamilyItemNumber"].astype(str).fillna("UNKNOWN")
+        if "FamilyItemNumber" in df.columns
+        else "UNKNOWN"
+    )
+
+    return feat
+
+
+def make_lateness_label(df: pd.DataFrame) -> pd.Series:
+    """Crée le label de retard : IsLate = 1 si LastReceiptDate - NeededDate > LATE_THRESHOLD_DAYS."""
+    days_late = (df["LastReceiptDate"] - df["NeededDate"]).dt.days
+    return (days_late > LATE_THRESHOLD_DAYS).astype(int)

@@ -39,3 +39,49 @@ def test_load_data_parses_dates(tmp_path):
     assert mo["ItemOrderedQuantity"].dtype == float
     assert len(mo) == 1
     assert len(sales) == 1
+
+
+def _make_mo_df(**overrides):
+    base = {
+        "MOCreatedDate": pd.Timestamp("2022-01-01"),
+        "NeededDate":    pd.Timestamp("2022-03-01"),
+        "ScheduledDate": pd.Timestamp("2022-02-20"),
+        "LastReceiptDate": pd.Timestamp("2022-03-08"),
+        "ItemOrderedQuantity": 10.0,
+        "ReceiptQuantity": 5.0,
+        "WorkCenter": "2750",
+        "Planner": "MBO",
+        "FamilyItemNumber": "ML155SG",
+        "MOLineStatus": "2",
+        "MOStatus": 2,
+        "MONumber": "MBO001",
+        "ItemNumber": "991.6701.18",
+    }
+    base.update(overrides)
+    return pd.DataFrame([base])
+
+
+def test_build_lateness_features_values():
+    mo = _make_mo_df()
+    feat = mp.build_lateness_features(mo)
+
+    assert feat["DaysOrderedToNeeded"].iloc[0] == 59   # 01/01 → 01/03
+    assert feat["DaysScheduledToNeeded"].iloc[0] == 9  # 20/02 → 01/03
+    assert feat["ReceivedPct"].iloc[0] == pytest.approx(0.5)
+    assert feat["NeededMonth"].iloc[0] == 3
+    assert feat["NeededQuarter"].iloc[0] == 1
+    assert feat["WorkCenter"].iloc[0] == "2750"
+
+
+def test_make_lateness_label_late():
+    mo = _make_mo_df(LastReceiptDate=pd.Timestamp("2022-03-08"), NeededDate=pd.Timestamp("2022-03-01"))
+    # DaysLate = 7 > 5 → IsLate = 1
+    label = mp.make_lateness_label(mo)
+    assert label.iloc[0] == 1
+
+
+def test_make_lateness_label_on_time():
+    mo = _make_mo_df(LastReceiptDate=pd.Timestamp("2022-03-03"), NeededDate=pd.Timestamp("2022-03-01"))
+    # DaysLate = 2 <= 5 → IsLate = 0
+    label = mp.make_lateness_label(mo)
+    assert label.iloc[0] == 0
