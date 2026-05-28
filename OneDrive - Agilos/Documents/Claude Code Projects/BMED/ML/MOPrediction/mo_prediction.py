@@ -206,14 +206,15 @@ def build_lateness_features(df: pd.DataFrame) -> pd.DataFrame:
     feat["NeededMonth"]   = df["NeededDate"].dt.month
     feat["NeededQuarter"] = df["NeededDate"].dt.quarter
 
-    # Categorical features
-    feat["WorkCenter"]       = df["WorkCenter"].astype(str).fillna("UNKNOWN")
-    feat["Planner"]          = df["Planner"].astype(str).fillna("UNKNOWN")
-    feat["FamilyItemNumber"] = (
-        df["FamilyItemNumber"].astype(str).fillna("UNKNOWN")
-        if "FamilyItemNumber" in df.columns
-        else "UNKNOWN"
-    )
+    # Categorical features — fillna avant astype(str) pour éviter "nan" string
+    for cat_col in ["WorkCenter", "Planner"]:
+        feat[cat_col] = df[cat_col].where(df[cat_col].notna(), "UNKNOWN").astype(str)
+    if "FamilyItemNumber" in df.columns:
+        feat["FamilyItemNumber"] = df["FamilyItemNumber"].where(
+            df["FamilyItemNumber"].notna(), "UNKNOWN"
+        ).astype(str)
+    else:
+        feat["FamilyItemNumber"] = "UNKNOWN"
 
     return feat
 
