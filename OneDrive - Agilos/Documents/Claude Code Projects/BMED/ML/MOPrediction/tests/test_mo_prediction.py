@@ -191,3 +191,25 @@ def test_compute_gap():
     row_no_mo = gap[(gap["FamilyItemNumber"] == "ML155SG") & (gap["_Month"] == 7)]
     assert row_no_mo["PlannedMOQty"].iloc[0] == pytest.approx(0.0)
     assert row_no_mo["ProductionGap"].iloc[0] == pytest.approx(80.0)
+
+
+def test_write_outputs_creates_files(tmp_path):
+    lateness = pd.DataFrame({
+        "MONumber": ["MBO001"], "ItemNumber": ["991.0000.01"],
+        "FamilyItemNumber": ["ML155SG"], "WorkCenter": ["2750"],
+        "NeededDate": [pd.Timestamp("2026-06-01")],
+        "ScheduledDate": [pd.Timestamp("2026-05-25")],
+        "ItemOrderedQuantity": [10.0], "ReceiptQuantity": [0.0],
+        "LateProbability": [0.72], "LateRisk": ["High"],
+    })
+    gap = pd.DataFrame({
+        "FamilyItemNumber": ["ML155SG"],
+        "_Year": [2026], "_Month": [6],
+        "ForecastedDemand": [100.0],
+        "PlannedMOQty": [60.0],
+        "ProductionGap": [40.0],
+    })
+    mp.write_outputs(lateness, gap, str(tmp_path), "2026-05-28")
+
+    assert (tmp_path / "mo_lateness_predictions_2026-05-28.csv").exists()
+    assert (tmp_path / "mo_demand_gap_2026-05-28.csv").exists()

@@ -522,3 +522,55 @@ def predict_lateness(model: Pipeline, open_mo: pd.DataFrame) -> pd.DataFrame:
              (result["LateRisk"] == "Medium").mean() * 100,
              (result["LateRisk"] == "Low").mean() * 100)
     return result
+
+
+# ---------------------------------------------------------------------------
+# OUTPUT WRITING
+# ---------------------------------------------------------------------------
+def write_outputs(lateness_df: pd.DataFrame, gap_df: pd.DataFrame,
+                  output_dir: str, run_date: str) -> None:
+    """Écrit les deux CSVs et les graphiques de prévision."""
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    charts_dir = out / "charts"
+    charts_dir.mkdir(exist_ok=True)
+
+    # CSV 1 : prédictions retard MO
+    late_path = out / f"mo_lateness_predictions_{run_date}.csv"
+    lateness_df.to_csv(late_path, sep=";", index=False, encoding="utf-8-sig")
+    log.info("Écrit : %s (%d lignes)", late_path, len(lateness_df))
+
+    # CSV 2 : gap demande / production
+    gap_path = out / f"mo_demand_gap_{run_date}.csv"
+    gap_df.to_csv(gap_path, sep=";", index=False, encoding="utf-8-sig")
+    log.info("Écrit : %s (%d lignes)", gap_path, len(gap_df))
+
+    # Graphiques par famille
+    if "ForecastedDemand" in gap_df.columns and MO_SEGMENT_COL in gap_df.columns:
+        for seg_val, grp in gap_df.groupby(MO_SEGMENT_COL):
+            fig, ax = plt.subplots(figsize=(10, 4))
+            grp = grp.copy()
+            grp["ds"] = pd.to_datetime(
+                grp["_Year"].astype(int).astype(str) + "-" +
+                grp["_Month"].astype(int).astype(str).str.zfill(2) + "-01"
+            )
+            ax.bar(grp["ds"], grp["PlannedMOQty"], label="MOs planifiés",
+                   color="#4C72B0", alpha=0.7)
+            ax.plot(grp["ds"], grp["ForecastedDemand"], "o-", color="#DD8452",
+                    label="Demande prévue")
+            ax.fill_between(
+                grp["ds"],
+                grp[["ForecastedDemand", "PlannedMOQty"]].min(axis=1),
+                grp[["ForecastedDemand", "PlannedMOQty"]].max(axis=1),
+                where=(grp["ProductionGap"] > 0), color="red", alpha=0.15, label="Manque"
+            )
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
+            ax.set_title(f"Demande vs Production planifiée — {seg_val}")
+            ax.set_ylabel("Quantité")
+            ax.legend()
+            plt.tight_layout()
+            safe_name = str(seg_val).replace("/", "_").replace("\\", "_")
+            fig.savefig(charts_dir / f"forecast_{safe_name}.png", dpi=100)
+            plt.close(fig)
+
+    log.info("Graphiques écrits dans %s", charts_dir)
