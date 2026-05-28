@@ -113,7 +113,8 @@ DATE_COLS_MO = [
 # DATA LOADING
 # ---------------------------------------------------------------------------
 def _parse_dates(df: pd.DataFrame, cols: list) -> pd.DataFrame:
-    """Convertit les colonnes de dates en format datetime64."""
+    """Convertit les colonnes de dates en format datetime64. Retourne une copie."""
+    df = df.copy()
     for col in cols:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], dayfirst=True, errors="coerce")
@@ -141,10 +142,12 @@ def load_data(mo_path: str, sales_path: str):
         if col in mo.columns:
             mo[col] = pd.to_numeric(mo[col], errors="coerce").fillna(0.0).astype(float)
 
-    # Assurer que MOLineStatus est une chaîne
+    # Assurer que MOLineStatus est une chaîne sans valeurs "nan"
     if "MOLineStatus" not in mo.columns:
         mo["MOLineStatus"] = ""
-    mo["MOLineStatus"] = mo["MOLineStatus"].astype(str).fillna("")
+    mo["MOLineStatus"] = (
+        mo["MOLineStatus"].fillna("").astype(str).replace({"nan": "", "None": ""})
+    )
 
     # Charger Sales.csv avec fallback d'encodage
     sales = None
@@ -158,12 +161,17 @@ def load_data(mo_path: str, sales_path: str):
         raise ValueError(f"Impossible de lire {sales_path}")
 
     # Normaliser Quantity
-    sales["Quantity"] = pd.to_numeric(sales.get("Quantity", pd.Series(dtype=float)),
-                                       errors="coerce").fillna(0.0)
+    if "Quantity" not in sales.columns:
+        sales["Quantity"] = 0.0
+    else:
+        sales["Quantity"] = pd.to_numeric(sales["Quantity"], errors="coerce").fillna(0.0)
 
     # Gérer Year et Month (avec fallback pour année fiscale)
     year_col = "Year_Fiscal" if USE_FISCAL_YEAR and "Year_Fiscal" in sales.columns else "Year"
     month_col = "Month_Fiscal" if USE_FISCAL_YEAR and "Month_Fiscal" in sales.columns else "Month"
+    for col in (year_col, month_col):
+        if col not in sales.columns:
+            raise ValueError(f"Sales.csv : colonne obligatoire manquante — '{col}'")
     sales["_Year"]  = pd.to_numeric(sales[year_col],  errors="coerce")
     sales["_Month"] = pd.to_numeric(sales[month_col], errors="coerce")
 
