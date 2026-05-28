@@ -8,7 +8,7 @@ Génère deux CSVs pour Qlik Sense.
 
 Usage:
     python mo_prediction.py
-    python mo_prediction.py --mo "chemin\MO.csv" --sales "chemin\Sales.csv"
+    python mo_prediction.py --mo "chemin/MO.csv" --sales "chemin/Sales.csv"
     python mo_prediction.py --no-cv --forecast-months 3
 """
 
