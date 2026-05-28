@@ -574,3 +574,70 @@ def write_outputs(lateness_df: pd.DataFrame, gap_df: pd.DataFrame,
             plt.close(fig)
 
     log.info("Graphiques écrits dans %s", charts_dir)
+
+
+# ---------------------------------------------------------------------------
+# CLI & MAIN ORCHESTRATION
+# ---------------------------------------------------------------------------
+def parse_args():
+    p = argparse.ArgumentParser(description="MO Prediction — retard + prévision quantités")
+    p.add_argument("--mo",             default=MO_PATH,    help="Chemin MO.csv")
+    p.add_argument("--sales",          default=SALES_PATH, help="Chemin Sales.csv")
+    p.add_argument("--output",         default=OUTPUT_DIR, help="Dossier de sortie")
+    p.add_argument("--no-cv",          action="store_true", help="Désactiver cross-validation")
+    p.add_argument("--forecast-months",type=int, default=FORECAST_MONTHS,
+                   help="Mois à prévoir (défaut: 6)")
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    log.info("=== MO Prediction démarré — %s ===", RUN_DATE)
+    mo, sales = load_data(args.mo, args.sales)
+
+    # ── Modèle 1 : Lateness ──────────────────────────────────────────────
+    hist_mo = mo[
+        (mo["MOStatus"].astype(str) == "2") &
+        mo["LastReceiptDate"].notna() &
+        mo["NeededDate"].notna()
+    ].copy()
+
+    open_mo = mo[
+        (mo["MOLineStatus"] < "5") &
+        (mo["ReceiptQuantity"] < mo["ItemOrderedQuantity"]) &
+        mo["NeededDate"].notna()
+    ].copy()
+
+    log.info("MOs historiques : %d | MOs ouverts : %d", len(hist_mo), len(open_mo))
+
+    lateness_df = pd.DataFrame()
+    if len(hist_mo) >= 30:
+        X = build_lateness_features(hist_mo)
+        y = make_lateness_label(hist_mo)
+        valid = y.notna() & X[NUMERIC_FEATURES].notna().all(axis=1)
+        X, y = X[valid], y[valid]
+        if len(y) >= 30:
+            model = train_lateness_model(X, y, cv=not args.no_cv)
+            lateness_df = predict_lateness(model, open_mo)
+        else:
+            log.warning("Pas assez de MOs historiques valides (%d) — modèle lateness ignoré.", len(y))
+    else:
+        log.warning("Pas assez de MOs historiques (%d) — modèle lateness ignoré.", len(hist_mo))
+
+    # ── Modèle 2 : Demand Forecast ───────────────────────────────────────
+    n_forecast = args.forecast_months
+    series = build_demand_series(sales, SALES_SEGMENT_COL)
+    forecast_df = forecast_demand(series, n_forecast, MIN_MONTHS, TEST_MONTHS,
+                                  segment_col=MO_SEGMENT_COL)
+
+    # ── Gap analysis ─────────────────────────────────────────────────────
+    gap_df = compute_gap(forecast_df, open_mo)
+
+    # ── Outputs ──────────────────────────────────────────────────────────
+    write_outputs(lateness_df, gap_df, args.output, RUN_DATE)
+    log.info("=== Terminé ===")
+
+
+if __name__ == "__main__":
+    main()
