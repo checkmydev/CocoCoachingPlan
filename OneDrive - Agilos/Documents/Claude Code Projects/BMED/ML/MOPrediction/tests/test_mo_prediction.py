@@ -85,3 +85,54 @@ def test_make_lateness_label_on_time():
     # DaysLate = 2 <= 5 → IsLate = 0
     label = mp.make_lateness_label(mo)
     assert label.iloc[0] == 0
+
+
+import numpy as np
+
+
+def _make_training_mo(n=60):
+    """Génère n MOs historiques avec IsLate aléatoire mais reproductible."""
+    rng = np.random.default_rng(42)
+    records = []
+    for i in range(n):
+        created  = pd.Timestamp("2021-01-01") + pd.Timedelta(days=int(rng.integers(0, 300)))
+        needed   = created + pd.Timedelta(days=int(rng.integers(10, 90)))
+        sched    = needed - pd.Timedelta(days=int(rng.integers(0, 15)))
+        delay    = int(rng.integers(-3, 20))
+        received = needed + pd.Timedelta(days=delay)
+        records.append({
+            "MOCreatedDate": created, "NeededDate": needed,
+            "ScheduledDate": sched, "LastReceiptDate": received,
+            "ItemOrderedQuantity": float(rng.integers(1, 50)),
+            "ReceiptQuantity": float(rng.integers(0, 50)),
+            "WorkCenter": rng.choice(["2500", "2750", "2700"]),
+            "Planner": rng.choice(["MBO", "MLK"]),
+            "FamilyItemNumber": rng.choice(["ML155SG", "ML355S", "MT8"]),
+            "MOLineStatus": "2", "MOStatus": 2,
+            "MONumber": f"MBO{i:04d}", "ItemNumber": "991.0000.00",
+        })
+    return pd.DataFrame(records)
+
+
+def test_train_lateness_model_returns_pipeline():
+    mo = _make_training_mo(60)
+    X = mp.build_lateness_features(mo)
+    y = mp.make_lateness_label(mo)
+    model = mp.train_lateness_model(X, y, cv=False)
+    assert hasattr(model, "predict_proba")
+
+
+def test_predict_lateness_output_shape():
+    mo = _make_training_mo(60)
+    X = mp.build_lateness_features(mo)
+    y = mp.make_lateness_label(mo)
+    model = mp.train_lateness_model(X, y, cv=False)
+
+    open_mo = _make_training_mo(10)
+    result = mp.predict_lateness(model, open_mo)
+
+    assert len(result) == 10
+    assert "LateProbability" in result.columns
+    assert "LateRisk" in result.columns
+    assert result["LateProbability"].between(0, 1).all()
+    assert set(result["LateRisk"].unique()).issubset({"Low", "Medium", "High"})

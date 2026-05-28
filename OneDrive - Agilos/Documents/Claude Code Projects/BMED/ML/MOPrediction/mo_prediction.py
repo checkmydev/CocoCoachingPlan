@@ -223,3 +223,63 @@ def make_lateness_label(df: pd.DataFrame) -> pd.Series:
     """Crée le label de retard : IsLate = 1 si LastReceiptDate - NeededDate > LATE_THRESHOLD_DAYS."""
     days_late = (df["LastReceiptDate"] - df["NeededDate"]).dt.days
     return (days_late > LATE_THRESHOLD_DAYS).astype(int)
+
+
+# ---------------------------------------------------------------------------
+# MODEL : LATENESS
+# ---------------------------------------------------------------------------
+def train_lateness_model(X: pd.DataFrame, y: pd.Series, cv: bool = True) -> Pipeline:
+    """Entraîne un RandomForest sur les MOs historiques."""
+    num_pipe = Pipeline([("impute", SimpleImputer(strategy="median"))])
+    cat_pipe = Pipeline([
+        ("impute", SimpleImputer(strategy="most_frequent")),
+        ("encode", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)),
+    ])
+    pre = ColumnTransformer([
+        ("num", num_pipe, NUMERIC_FEATURES),
+        ("cat", cat_pipe, CATEGORICAL_FEATURES),
+    ])
+    model = Pipeline([
+        ("pre", pre),
+        ("clf", RandomForestClassifier(
+            n_estimators=200, class_weight="balanced", random_state=42, n_jobs=-1
+        )),
+    ])
+    if cv and len(y) >= 10:
+        scores = cross_val_score(model, X, y, cv=5, scoring="roc_auc")
+        log.info("Lateness CV AUC : %.3f ± %.3f", scores.mean(), scores.std())
+    model.fit(X, y)
+    log.info("Lateness model entraîné sur %d MOs historiques (IsLate=%.1f%%)",
+             len(y), y.mean() * 100)
+    return model
+
+
+def predict_lateness(model: Pipeline, open_mo: pd.DataFrame) -> pd.DataFrame:
+    """Applique le modèle aux MOs ouverts. Retourne un DataFrame avec LateProbability."""
+    if len(open_mo) == 0:
+        log.warning("Aucun MO ouvert trouvé — fichier de prédiction sera vide.")
+        return pd.DataFrame(columns=[
+            "MONumber", "ItemNumber", "FamilyItemNumber", "WorkCenter",
+            "NeededDate", "ScheduledDate", "ItemOrderedQuantity", "ReceiptQuantity",
+            "LateProbability", "LateRisk",
+        ])
+    features = build_lateness_features(open_mo)
+    proba = model.predict_proba(features)[:, 1]
+
+    keep_cols = [c for c in [
+        "MONumber", "ItemNumber", "FamilyItemNumber", "WorkCenter",
+        "NeededDate", "ScheduledDate", "ItemOrderedQuantity", "ReceiptQuantity",
+    ] if c in open_mo.columns]
+    result = open_mo[keep_cols].copy().reset_index(drop=True)
+    result["LateProbability"] = proba.round(4)
+    result["LateRisk"] = pd.cut(
+        result["LateProbability"],
+        bins=[-0.001, LATE_RISK_MEDIUM, LATE_RISK_HIGH, 1.001],
+        labels=["Low", "Medium", "High"],
+    ).astype(str)
+    log.info("Prédiction retard : %d MOs ouverts — High=%.0f%% Medium=%.0f%% Low=%.0f%%",
+             len(result),
+             (result["LateRisk"] == "High").mean() * 100,
+             (result["LateRisk"] == "Medium").mean() * 100,
+             (result["LateRisk"] == "Low").mean() * 100)
+    return result
