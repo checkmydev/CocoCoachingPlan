@@ -275,6 +275,162 @@ def build_demand_series(sales: pd.DataFrame, segment_col: str) -> dict:
     return series
 
 
+# ---------------------------------------------------------------------------
+# DEMAND FORECASTING
+# ---------------------------------------------------------------------------
+_LAG_COLS = ["lag_1", "lag_3", "lag_12", "rolling_3", "month", "quarter", "year"]
+
+
+def _build_lag_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy().sort_values("ds").reset_index(drop=True)
+    df["lag_1"]     = df["y"].shift(1)
+    df["lag_3"]     = df["y"].shift(3)
+    df["lag_12"]    = df["y"].shift(12)
+    df["rolling_3"] = df["y"].shift(1).rolling(3).mean()
+    df["month"]   = df["ds"].dt.month
+    df["quarter"] = df["ds"].dt.quarter
+    df["year"]    = df["ds"].dt.year
+    return df
+
+
+def _select_best_model(train: pd.DataFrame, test: pd.DataFrame):
+    """Essaie chaque algo disponible, retourne (modèle refitté sur tout, MAE_test)."""
+    valid = train.dropna(subset=_LAG_COLS)
+    if len(valid) < 5:
+        return None, float("inf")
+
+    X_tr, y_tr = valid[_LAG_COLS], valid["y"]
+    X_te = test.dropna(subset=_LAG_COLS)
+    if X_te.empty:
+        return None, float("inf")
+    y_te = X_te["y"]
+    X_te = X_te[_LAG_COLS]
+
+    candidates = [
+        ("ridge", Pipeline([("sc", StandardScaler()), ("m", Ridge())])),
+        ("rf",    RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)),
+    ]
+    if HAS_XGB:
+        candidates.insert(0, ("xgb", xgb.XGBRegressor(n_estimators=100, random_state=42, verbosity=0)))
+    if HAS_LGB:
+        candidates.insert(0, ("lgb", lgb.LGBMRegressor(n_estimators=100, random_state=42, verbose=-1)))
+
+    best_model, best_mae = None, float("inf")
+    for name, m in candidates:
+        try:
+            m.fit(X_tr, y_tr)
+            mae = mean_absolute_error(y_te, m.predict(X_te))
+            log.info("    %s  MAE=%.2f", name, mae)
+            if mae < best_mae:
+                best_mae, best_model = mae, m
+        except Exception as e:
+            log.warning("    %s échoué : %s", name, e)
+
+    if best_model is not None:
+        X_all = pd.concat([X_tr, X_te])
+        y_all = pd.concat([y_tr, y_te])
+        best_model.fit(X_all, y_all)
+
+    return best_model, best_mae
+
+
+def _forecast_recursive(model, history: list, n_months: int,
+                        last_date: pd.Timestamp) -> pd.DataFrame:
+    """Prévision récursive mois par mois à partir de l'historique."""
+    preds = []
+    hist = list(history)
+    for i in range(n_months):
+        future_date = last_date + pd.DateOffset(months=i + 1)
+        lag_1     = hist[-1]  if len(hist) >= 1  else np.nan
+        lag_3     = hist[-3]  if len(hist) >= 3  else np.nan
+        lag_12    = hist[-12] if len(hist) >= 12 else np.nan
+        rolling_3 = float(np.mean(hist[-3:])) if len(hist) >= 3 else np.nan
+        X = pd.DataFrame([{
+            "lag_1": lag_1, "lag_3": lag_3, "lag_12": lag_12,
+            "rolling_3": rolling_3,
+            "month": future_date.month, "quarter": future_date.quarter,
+            "year": future_date.year,
+        }])
+        pred = max(0.0, float(model.predict(X)[0]))
+        preds.append({
+            "ds": future_date,
+            "_Year":  future_date.year,
+            "_Month": future_date.month,
+            "ForecastedDemand": round(pred, 2),
+        })
+        hist.append(pred)
+    return pd.DataFrame(preds)
+
+
+def forecast_demand(series_dict: dict, forecast_months: int,
+                    min_months: int, test_months: int) -> pd.DataFrame:
+    """Lance la prévision pour chaque segment. Retourne un DataFrame consolidé."""
+    all_preds = []
+    for seg_val, df in series_dict.items():
+        log.info("Prévision segment : %s (%d mois d'historique)", seg_val, len(df))
+
+        if len(df) < min_months:
+            log.warning("  → Historique insuffisant (%d < %d), moyenne utilisée.", len(df), min_months)
+            avg = df["y"].mean()
+            last_date = df["ds"].max()
+            for i in range(forecast_months):
+                fd = last_date + pd.DateOffset(months=i + 1)
+                all_preds.append({
+                    MO_SEGMENT_COL: seg_val,
+                    "_Year": fd.year, "_Month": fd.month,
+                    "ForecastedDemand": round(avg, 2),
+                })
+            continue
+
+        df_lag = _build_lag_features(df)
+        split  = len(df_lag) - test_months
+        train  = df_lag.iloc[:split]
+        test   = df_lag.iloc[split:]
+
+        # Essai Prophet si disponible et assez de données
+        prophet_model, prophet_mae = None, float("inf")
+        if HAS_PROPHET and len(df) >= 36:
+            try:
+                m = Prophet(yearly_seasonality=True, weekly_seasonality=False,
+                            daily_seasonality=False, changepoint_prior_scale=0.05)
+                m.fit(df.rename(columns={"ds": "ds", "y": "y"})[["ds", "y"]])
+                future = m.make_future_dataframe(periods=test_months, freq="MS")
+                fc = m.predict(future).tail(test_months)
+                prophet_mae = mean_absolute_error(test["y"].values, fc["yhat"].values)
+                prophet_model = m
+                log.info("    prophet  MAE=%.2f", prophet_mae)
+            except Exception as e:
+                log.warning("    prophet échoué : %s", e)
+
+        best_model, best_mae = _select_best_model(train, test)
+
+        history = list(df["y"].values)
+        last_date = df["ds"].max()
+
+        if prophet_model is not None and prophet_mae < best_mae:
+            future = prophet_model.make_future_dataframe(
+                periods=len(df) + forecast_months, freq="MS")
+            fc = prophet_model.predict(future).tail(forecast_months)
+            rows = fc[["ds", "yhat"]].copy()
+            rows["yhat"] = rows["yhat"].clip(lower=0).round(2)
+            for _, r in rows.iterrows():
+                all_preds.append({
+                    MO_SEGMENT_COL: seg_val,
+                    "_Year": r["ds"].year, "_Month": r["ds"].month,
+                    "ForecastedDemand": r["yhat"],
+                })
+        elif best_model is not None:
+            preds_df = _forecast_recursive(best_model, history, forecast_months, last_date)
+            preds_df[MO_SEGMENT_COL] = seg_val
+            all_preds.extend(preds_df.to_dict("records"))
+        else:
+            log.warning("  → Aucun modèle disponible pour %s", seg_val)
+
+    if not all_preds:
+        return pd.DataFrame(columns=[MO_SEGMENT_COL, "_Year", "_Month", "ForecastedDemand"])
+    return pd.DataFrame(all_preds)
+
+
 def predict_lateness(model: Pipeline, open_mo: pd.DataFrame) -> pd.DataFrame:
     """Applique le modèle aux MOs ouverts. Retourne un DataFrame avec LateProbability."""
     if len(open_mo) == 0:

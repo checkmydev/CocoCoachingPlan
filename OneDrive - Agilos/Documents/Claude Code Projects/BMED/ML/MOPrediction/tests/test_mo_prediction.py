@@ -151,3 +151,20 @@ def test_build_demand_series():
     assert len(ml155) == 2
     assert ml155.loc[ml155["_Month"] == 1, "y"].iloc[0] == pytest.approx(10.0)
     assert "ds" in ml155.columns
+
+
+def test_build_lag_features():
+    df = pd.DataFrame({
+        "ds": pd.date_range("2020-01-01", periods=15, freq="MS"),
+        "y": list(range(15)),
+        "_Year":  [d.year for d in pd.date_range("2020-01-01", periods=15, freq="MS")],
+        "_Month": [d.month for d in pd.date_range("2020-01-01", periods=15, freq="MS")],
+    })
+    out = mp._build_lag_features(df)
+    assert "lag_1"    in out.columns
+    assert "lag_12"   in out.columns
+    assert "rolling_3" in out.columns
+    # La 14e ligne (index 13) doit avoir lag_1 = 12
+    assert out["lag_1"].iloc[13] == pytest.approx(12.0)
+    # Les 12 premières lignes ont lag_12 = NaN
+    assert out["lag_12"].iloc[0] != out["lag_12"].iloc[0]  # NaN check
