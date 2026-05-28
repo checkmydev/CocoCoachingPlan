@@ -15,6 +15,7 @@ Usage:
 import argparse
 import logging
 import os
+import re
 import sys
 import warnings
 from datetime import date
@@ -569,11 +570,12 @@ def write_outputs(lateness_df: pd.DataFrame, gap_df: pd.DataFrame,
             ax.set_ylabel("Quantité")
             ax.legend()
             plt.tight_layout()
-            safe_name = str(seg_val).replace("/", "_").replace("\\", "_")
+            safe_name = re.sub(r'[/\\:*?<>|]', '_', str(seg_val))
             fig.savefig(charts_dir / f"forecast_{safe_name}.png", dpi=100)
             plt.close(fig)
-
-    log.info("Graphiques écrits dans %s", charts_dir)
+        log.info("Graphiques écrits dans %s", charts_dir)
+    else:
+        log.info("Aucun graphique — colonnes ForecastedDemand/FamilyItemNumber absentes.")
 
 
 # ---------------------------------------------------------------------------
@@ -604,14 +606,19 @@ def main():
     ].copy()
 
     open_mo = mo[
-        (mo["MOLineStatus"] < "5") &
+        (pd.to_numeric(mo["MOLineStatus"], errors="coerce").fillna(0).astype(int) < 5) &
         (mo["ReceiptQuantity"] < mo["ItemOrderedQuantity"]) &
         mo["NeededDate"].notna()
     ].copy()
 
     log.info("MOs historiques : %d | MOs ouverts : %d", len(hist_mo), len(open_mo))
 
-    lateness_df = pd.DataFrame()
+    _LATENESS_EMPTY_COLS = [
+        "MONumber", "ItemNumber", "FamilyItemNumber", "WorkCenter",
+        "NeededDate", "ScheduledDate", "ItemOrderedQuantity", "ReceiptQuantity",
+        "LateProbability", "LateRisk",
+    ]
+    lateness_df = pd.DataFrame(columns=_LATENESS_EMPTY_COLS)
     if len(hist_mo) >= 30:
         X = build_lateness_features(hist_mo)
         y = make_lateness_label(hist_mo)
