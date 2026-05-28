@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 from pathlib import Path
@@ -85,9 +86,6 @@ def test_make_lateness_label_on_time():
     # DaysLate = 2 <= 5 → IsLate = 0
     label = mp.make_lateness_label(mo)
     assert label.iloc[0] == 0
-
-
-import numpy as np
 
 
 def _make_training_mo(n=60):
