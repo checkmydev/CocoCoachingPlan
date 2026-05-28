@@ -431,6 +431,40 @@ def forecast_demand(series_dict: dict, forecast_months: int,
     return pd.DataFrame(all_preds)
 
 
+# ---------------------------------------------------------------------------
+# GAP ANALYSIS
+# ---------------------------------------------------------------------------
+def compute_gap(forecast_df: pd.DataFrame, open_mo: pd.DataFrame) -> pd.DataFrame:
+    """Joint les prévisions avec les MOs déjà planifiés pour calculer le ProductionGap."""
+    if open_mo.empty or "NeededDate" not in open_mo.columns:
+        forecast_df = forecast_df.copy()
+        forecast_df["PlannedMOQty"] = 0.0
+        forecast_df["ProductionGap"] = forecast_df["ForecastedDemand"]
+        return forecast_df
+
+    mo_agg = open_mo.copy()
+    mo_agg["_Year"]  = mo_agg["NeededDate"].dt.year
+    mo_agg["_Month"] = mo_agg["NeededDate"].dt.month
+    mo_agg["ItemOrderedQuantity"] = pd.to_numeric(
+        mo_agg["ItemOrderedQuantity"], errors="coerce"
+    ).fillna(0)
+
+    planned = (
+        mo_agg.groupby([MO_SEGMENT_COL, "_Year", "_Month"])["ItemOrderedQuantity"]
+        .sum()
+        .reset_index()
+        .rename(columns={"ItemOrderedQuantity": "PlannedMOQty"})
+    )
+
+    result = forecast_df.merge(planned, on=[MO_SEGMENT_COL, "_Year", "_Month"], how="left")
+    result["PlannedMOQty"]   = result["PlannedMOQty"].fillna(0.0)
+    result["ProductionGap"]  = result["ForecastedDemand"] - result["PlannedMOQty"]
+
+    log.info("Gap analysis : %d lignes famille/mois | Manque moyen : %.1f unités",
+             len(result), result["ProductionGap"].clip(lower=0).mean())
+    return result
+
+
 def predict_lateness(model: Pipeline, open_mo: pd.DataFrame) -> pd.DataFrame:
     """Applique le modèle aux MOs ouverts. Retourne un DataFrame avec LateProbability."""
     if len(open_mo) == 0:

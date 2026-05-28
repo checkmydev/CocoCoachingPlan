@@ -168,3 +168,26 @@ def test_build_lag_features():
     assert out["lag_1"].iloc[13] == pytest.approx(12.0)
     # Les 12 premières lignes ont lag_12 = NaN
     assert out["lag_12"].iloc[0] != out["lag_12"].iloc[0]  # NaN check
+
+
+def test_compute_gap():
+    forecast = pd.DataFrame({
+        "FamilyItemNumber": ["ML155SG", "ML155SG", "ML355S"],
+        "_Year":  [2026, 2026, 2026],
+        "_Month": [6,    7,    6  ],
+        "ForecastedDemand": [100.0, 80.0, 50.0],
+    })
+    open_mo = pd.DataFrame({
+        "FamilyItemNumber": ["ML155SG", "ML155SG"],
+        "NeededDate": [pd.Timestamp("2026-06-15"), pd.Timestamp("2026-06-20")],
+        "ItemOrderedQuantity": [40.0, 25.0],
+    })
+    gap = mp.compute_gap(forecast, open_mo)
+
+    row = gap[(gap["FamilyItemNumber"] == "ML155SG") & (gap["_Month"] == 6)]
+    assert row["PlannedMOQty"].iloc[0] == pytest.approx(65.0)
+    assert row["ProductionGap"].iloc[0] == pytest.approx(35.0)  # 100 - 65
+
+    row_no_mo = gap[(gap["FamilyItemNumber"] == "ML155SG") & (gap["_Month"] == 7)]
+    assert row_no_mo["PlannedMOQty"].iloc[0] == pytest.approx(0.0)
+    assert row_no_mo["ProductionGap"].iloc[0] == pytest.approx(80.0)
