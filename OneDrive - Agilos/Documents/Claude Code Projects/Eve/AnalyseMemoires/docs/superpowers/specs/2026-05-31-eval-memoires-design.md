@@ -18,12 +18,19 @@ Fournir une interface permettant au professeur de :
 
 ## Étudiants et grilles applicables
 
-| Étudiant | Fichier | Type | Grille écrite | Grille orale |
-|----------|---------|------|---------------|--------------|
-| Baudart A. | BAUDART_A_CUTM_TFF.pdf | TFF | TFF-CUTM /20 | TFF oral /40 |
-| Mora Hurtado Sebastian | MORA_HURTADO_SEBASTIAN_RC2026.pdf | RC | — | RC /20 (7 critères) |
-| Lucas Triffoy | RC LUCAS TRIFFOY.pdf | RC (TFF manquant) | Désactivé | RC /20 (7 critères) |
+7 étudiants au total (mise à jour après réception des fichiers complets).
+
+| Étudiant | Fichiers | Type | Grille écrite | Grille orale |
+|----------|----------|------|---------------|--------------|
+| Baudart A. | BAUDART_A_CUTM_TFF.pdf + BAUDART_A_CUTM_Raisonnement_clinique.pdf | TFF+RC | TFF-CUTM /20 | TFF oral /40 + RC |
+| Mora Hurtado S. | MORA_HURTADO_SEBASTIAN_RC2026.pdf | RC | — | RC (7 critères) |
+| Triffoy Lucas | LUCAS TRIFFOY TFF -SANS ANNEXE.pdf + RC LUCAS TRIFFOY.pdf | TFF+RC | TFF-CUTM /20 | TFF oral /40 + RC |
 | Issa David | Travail de fin de formation CUTM TTF+RC.pdf | TFF+RC | TFF-CUTM /20 | TFF oral /40 + RC |
+| Brzustowski Valentin | TFF- Valentin BRZUSTOWSKI.pdf + RC - Valentin BRZUSTOWSKI.pdf | TFF+RC | TFF-CUTM /20 | TFF oral /40 + RC |
+| Brandt Anthony | TFF CUTM Brandt Anthony.pdf + Raisonnement clinique Brandt Anthony.pdf | TFF+RC | TFF-CUTM /20 | TFF oral /40 + RC |
+| Goffaux Marie | TFE - Marie Goffaux.pdf | TFF+RC | TFF-CUTM /20 | TFF oral /40 + RC |
+
+**Note Brzustowski :** cas clinique portant sur les Désordres Temporo-Mandibulaires (DTM/ATM), non sur la cervicalgie. La grille TFF s'applique identiquement.
 
 ### Grille TFF écrite (/20)
 - Section 1 : Identification & Synthèse (3 pts) — Titre/mots-clés (0.5), Résumé (1.5), Introduction (1)
