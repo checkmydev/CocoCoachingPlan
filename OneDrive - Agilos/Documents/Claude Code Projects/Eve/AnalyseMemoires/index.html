@@ -1,1 +1,175 @@
-<!-- placeholder -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Évaluation Mémoires CUTM 2026</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════════════ -->
+  <header class="app-header">
+    <div class="header-left">
+      <button id="btn-home" class="btn-icon" title="Retour au tableau de bord">🏠</button>
+      <h1 id="app-title">Évaluation Mémoires CUTM 2026</h1>
+    </div>
+    <div class="header-right">
+      <button id="btn-compare" class="btn-secondary">📊 Comparaison</button>
+      <button id="btn-save" class="btn-primary">💾 Sauvegarder</button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════════════════ -->
+  <main id="app-main">
+
+    <!-- ── VIEW: Dashboard ── -->
+    <section id="view-dashboard" class="view active">
+      <div class="view-header">
+        <h2>Tableau de bord — 7 étudiants CUTM 2024-2026</h2>
+        <p class="subtitle">Cliquez sur un étudiant pour accéder à son évaluation complète.</p>
+      </div>
+      <div id="students-grid" class="students-grid">
+        <!-- JS renders student cards here -->
+      </div>
+    </section>
+
+    <!-- ── VIEW: Compare ── -->
+    <section id="view-compare" class="view">
+      <div class="view-header">
+        <h2>Comparaison des étudiants</h2>
+      </div>
+      <div id="compare-table-container"></div>
+    </section>
+
+    <!-- ── VIEW: Student detail ── -->
+    <section id="view-student" class="view">
+
+      <!-- Student header -->
+      <div class="student-header">
+        <h2 id="student-name-title"></h2>
+        <span id="student-type-badge" class="badge"></span>
+      </div>
+
+      <!-- Tabs navigation -->
+      <nav class="tabs" id="student-tabs">
+        <button class="tab-btn active" data-tab="analyse">📋 Analyse</button>
+        <button class="tab-btn" data-tab="ecrit" id="tab-ecrit-btn">📝 Grille écrite</button>
+        <button class="tab-btn" data-tab="oral" id="tab-oral-btn">🎤 Grille orale</button>
+        <button class="tab-btn" data-tab="questions">❓ Examen oral</button>
+      </nav>
+
+      <!-- ── Tab: Analyse ── -->
+      <div id="tab-analyse" class="tab-content active">
+        <div class="two-col">
+          <div class="panel">
+            <h3>📌 Résumé IA du mémoire</h3>
+            <ul id="summary-list" class="bullet-list"></ul>
+          </div>
+          <div class="panel">
+            <h3>🔍 Critique IA</h3>
+            <div class="critique-block">
+              <h4 class="strengths-title">✓ Points forts</h4>
+              <ul id="strengths-list" class="bullet-list strengths"></ul>
+              <h4 class="weaknesses-title">✗ Points à améliorer</h4>
+              <ul id="weaknesses-list" class="bullet-list weaknesses"></ul>
+            </div>
+          </div>
+        </div>
+        <div class="panel notes-panel">
+          <h3>📝 Mes notes générales</h3>
+          <textarea id="global-notes" class="notes-textarea" placeholder="Vos observations personnelles sur ce travail..."></textarea>
+        </div>
+      </div>
+
+      <!-- ── Tab: Grille écrite (TFF only) ── -->
+      <div id="tab-ecrit" class="tab-content">
+        <div id="written-grid-container">
+          <!-- JS renders criteria sections here -->
+        </div>
+        <div class="written-total-row">
+          <span>Score écrit total (votre notation) :</span>
+          <strong id="written-total-display" class="big-score">—</strong>
+          <span>/ 20</span>
+          <span class="ai-ref">(Score IA suggéré : <span id="written-ai-ref">—</span>/20)</span>
+        </div>
+      </div>
+
+      <!-- ── Tab: Grille orale ── -->
+      <div id="tab-oral" class="tab-content">
+        <div id="oral-grid-container">
+          <!-- JS renders oral criteria here -->
+        </div>
+      </div>
+
+      <!-- ── Tab: Examen oral ── -->
+      <div id="tab-questions" class="tab-content">
+        <div class="panel">
+          <h3>❓ Questions suggérées pour l'examen oral</h3>
+          <p class="subtitle">Ces questions sont générées par l'IA sur la base du contenu du mémoire.</p>
+          <div id="questions-list" class="questions-list"></div>
+        </div>
+        <div class="panel">
+          <h3>➕ Mes propres questions</h3>
+          <textarea id="custom-questions-input" class="notes-textarea" placeholder="Ajoutez vos questions personnelles pour cet étudiant..."></textarea>
+        </div>
+        <button id="btn-print-questions" class="btn-secondary print-btn">🖨️ Imprimer les questions</button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ══════════════════════════════════════════════════════
+       STICKY SCORE BAR (visible only in student view)
+  ══════════════════════════════════════════════════════ -->
+  <footer id="score-bar" class="score-bar hidden">
+    <div class="score-item" id="score-written-container">
+      <span class="score-label">Écrit</span>
+      <span id="score-written-val" class="score-val">—</span>
+      <span class="score-max">/20</span>
+    </div>
+    <div class="score-divider"></div>
+    <div class="score-item">
+      <span class="score-label">Oral (saisi)</span>
+      <input type="number" id="score-oral-val" class="score-input" min="0" max="40" placeholder="—" title="Entrez la note orale">
+      <span id="score-oral-max" class="score-max">/40</span>
+    </div>
+    <div class="score-divider"></div>
+    <div class="score-item progress-item">
+      <span class="score-label">Critères remplis</span>
+      <span class="score-progress-bar">
+        <span id="score-progress-fill" class="score-progress-fill"></span>
+      </span>
+      <span id="score-progress-label" class="score-progress-label">0%</span>
+    </div>
+  </footer>
+
+  <!-- ══════════════════════════════════════════════════════
+       MODAL: Evidence / passage du texte
+  ══════════════════════════════════════════════════════ -->
+  <div id="evidence-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button id="modal-close" class="modal-close" aria-label="Fermer">✕</button>
+      <h3 id="modal-criterion-label"></h3>
+      <div class="modal-section">
+        <span class="modal-section-title">📄 Extrait du travail</span>
+        <blockquote id="modal-quote"></blockquote>
+        <div id="modal-pdf-link-container"></div>
+      </div>
+      <div class="modal-section">
+        <span class="modal-section-title">🤖 Commentaire IA</span>
+        <p id="modal-ai-comment" class="modal-ai-text"></p>
+      </div>
+    </div>
+  </div>
+  <div id="modal-overlay" class="modal-overlay hidden"></div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
