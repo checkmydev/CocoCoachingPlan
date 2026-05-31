@@ -96,15 +96,15 @@ AnalyseMemoires/
 - 5 sections dépliables, chaque critère :
   - Libellé + description de l'indicateur attendu
   - Score max
-  - **Score IA proposé** (pré-rempli, non modifiable directement)
-  - **Score prof** (input numérique ou sélecteur Excellent/Satisfaisant/Faible/Insuffisant)
+  - **Score IA proposé** (affiché en label, lecture seule)
+  - **Score prof** (input pré-rempli avec suggestion IA, entièrement modifiable — sélecteur Excellent/Satisfaisant/Faible/Insuffisant ou valeur numérique)
   - Citation du passage pertinent (extrait textuel, italique)
   - Bouton "Ouvrir PDF p.X" (ouvre `Memoires/fichier.pdf#page=X`)
   - Champ commentaire prof (textarea)
 - Total auto-calculé, affiché en bas de chaque section et en pied de page
 
 #### Onglet 3 — Grille orale
-- Pour RC : 7 critères, sélecteur Insuffisant/Acceptable/Maîtrisé/Avancé + commentaire
+- Pour RC : 7 critères évalués individuellement (sélecteur Insuffisant/Acceptable/Maîtrisé/Avancé + commentaire). La note finale RC est une note globale /20 basée sur le niveau dominant des 7 critères (pas une somme), selon la grille : Insuffisant <10, Acceptable 10-12, Maîtrisé 13-15, Avancé >16. Le professeur saisit la note globale finale.
 - Pour TFF : 3 blocs, radio Tout à fait / Plutôt / Peu / Absent / N/A + commentaire
 - Note finale calculée selon guide de conversion
 - Indicateur "critères majeurs absents" si applicable
