@@ -15,7 +15,7 @@ export default function MyPrograms() {
       .select('*, program:programs(*)')
       .eq('client_id', profile.id)
       .eq('status', 'active')
-      .order('created_at', { ascending: false })
+      .order('start_date', { ascending: false })
       .then(({ data }) => { setPrograms(data ?? []); setLoading(false) })
   }, [profile])
 

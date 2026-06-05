@@ -30,7 +30,7 @@ export default function ClientDetail() {
       .from('client_programs')
       .select('*, program:programs(*)')
       .eq('client_id', id)
-      .order('created_at', { ascending: false })
+      .order('start_date', { ascending: false })
     setClientPrograms(data ?? [])
   }
 
