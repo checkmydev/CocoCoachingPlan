@@ -18,7 +18,13 @@ export default function ClientList() {
     const { error } = await supabase.functions.invoke('send-client-invitation', {
       body: { email, coachName: profile.name }
     })
-    setStatus(error ? `Erreur: ${error.message}` : `Invitation envoyée à ${email} ✓`)
+    if (error) {
+      let msg = error.message
+      try { const b = await error.context.json(); if (b?.error) msg = b.error } catch {}
+      setStatus(`Erreur: ${msg}`)
+    } else {
+      setStatus(`Invitation envoyée à ${email} ✓`)
+    }
     setEmail('')
     setInviting(false)
   }
