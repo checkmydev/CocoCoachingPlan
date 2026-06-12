@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import Logo from '../components/Logo'
 
 export default function Login() {
   const [mode, setMode] = useState('password') // 'password' | 'magic'
@@ -11,15 +12,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
-  // Auto-redirect if a session already exists (e.g. after clicking invite / magic link)
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) redirectByRole(session.user.id)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Only auto-redirect on explicit SIGNED_IN (magic link / invite click), not on INITIAL_SESSION
-      // to allow deliberate logout + re-login as a different account
       if (session && event === 'SIGNED_IN') {
         redirectByRole(session.user.id)
       }
@@ -61,49 +59,79 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm space-y-4">
-        <h1 className="text-2xl font-bold text-center">CoachApp</h1>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0f0f0f' }}>
+      {/* Background subtle texture */}
+      <div className="absolute inset-0 opacity-5"
+        style={{ backgroundImage: 'radial-gradient(circle at 25% 50%, #39E229 0%, transparent 50%), radial-gradient(circle at 75% 80%, #39E229 0%, transparent 40%)' }} />
 
-        {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded">{error}</p>}
-        {info  && <p className="text-green-600 text-sm bg-green-50 p-3 rounded">{info}</p>}
+      <div className="relative w-full max-w-sm mx-4">
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          <Logo dark size="lg" />
+        </div>
 
-        {mode === 'password' ? (
-          <form onSubmit={handlePasswordLogin} className="space-y-3">
-            <input type="email" placeholder="Email" value={email}
-              onChange={e => setEmail(e.target.value)} required
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <input type="password" placeholder="Mot de passe" value={password}
-              onChange={e => setPassword(e.target.value)} required
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button type="submit" disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleMagicLink} className="space-y-3">
-            <p className="text-sm text-gray-500 leading-relaxed">
-              Entrez votre email — vous recevrez un lien de connexion instantané, sans mot de passe.
-            </p>
-            <input type="email" placeholder="Email" value={email}
-              onChange={e => setEmail(e.target.value)} required
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button type="submit" disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
-              {loading ? 'Envoi...' : 'Recevoir un lien de connexion ✉'}
-            </button>
-          </form>
-        )}
+        {/* Card */}
+        <div className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-8 space-y-5">
+          <div className="text-center">
+            <h2 className="text-white font-semibold">Espace entraînement</h2>
+            <p className="text-white/40 text-sm mt-0.5">Connectez-vous pour accéder à votre espace</p>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => { setMode(m => m === 'password' ? 'magic' : 'password'); setError(null); setInfo(null) }}
-          className="w-full text-sm text-gray-400 hover:text-blue-600 text-center pt-1">
-          {mode === 'password'
-            ? 'Première connexion ou mot de passe oublié ?'
-            : '← Connexion avec mot de passe'}
-        </button>
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-xl">
+              {error}
+            </div>
+          )}
+          {info && (
+            <div className="border text-sm p-3 rounded-xl"
+              style={{ background: 'rgba(57,226,41,0.1)', borderColor: 'rgba(57,226,41,0.3)', color: '#39E229' }}>
+              {info}
+            </div>
+          )}
+
+          {mode === 'password' ? (
+            <form onSubmit={handlePasswordLogin} className="space-y-3">
+              <input type="email" placeholder="Email" value={email}
+                onChange={e => setEmail(e.target.value)} required
+                className="w-full bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 focus:outline-none focus:border-moov focus:ring-1 focus:ring-moov" />
+              <input type="password" placeholder="Mot de passe" value={password}
+                onChange={e => setPassword(e.target.value)} required
+                className="w-full bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 focus:outline-none focus:border-moov focus:ring-1 focus:ring-moov" />
+              <button type="submit" disabled={loading}
+                className="w-full py-3 rounded-xl font-bold text-black disabled:opacity-50 transition-opacity"
+                style={{ backgroundColor: '#39E229' }}>
+                {loading ? 'Connexion...' : 'Se connecter'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleMagicLink} className="space-y-3">
+              <p className="text-white/50 text-sm leading-relaxed">
+                Entrez votre email — vous recevrez un lien de connexion instantané, sans mot de passe.
+              </p>
+              <input type="email" placeholder="Email" value={email}
+                onChange={e => setEmail(e.target.value)} required
+                className="w-full bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 focus:outline-none focus:border-moov focus:ring-1 focus:ring-moov" />
+              <button type="submit" disabled={loading}
+                className="w-full py-3 rounded-xl font-bold text-black disabled:opacity-50 transition-opacity"
+                style={{ backgroundColor: '#39E229' }}>
+                {loading ? 'Envoi...' : 'Recevoir un lien de connexion ✉'}
+              </button>
+            </form>
+          )}
+
+          <button
+            type="button"
+            onClick={() => { setMode(m => m === 'password' ? 'magic' : 'password'); setError(null); setInfo(null) }}
+            className="w-full text-sm text-white/30 hover:text-white/60 text-center pt-1 transition-colors">
+            {mode === 'password'
+              ? 'Première connexion ou mot de passe oublié ?'
+              : '← Connexion avec mot de passe'}
+          </button>
+        </div>
+
+        <p className="text-center text-white/20 text-xs mt-6">
+          MooV'Lab — Laboratoire du Mouvement
+        </p>
       </div>
     </div>
   )

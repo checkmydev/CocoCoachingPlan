@@ -3,6 +3,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useStats } from '../contexts/StatsContext'
 import { getLevel, getLevelProgress } from '../lib/gamification'
+import Logo from './Logo'
+
+const MOOV_GREEN = '#39E229'
 
 export default function ClientLayout({ children }) {
   const navigate = useNavigate()
@@ -19,34 +22,38 @@ export default function ClientLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center gap-3">
-          <span className="font-bold text-lg shrink-0">CoachApp</span>
+      <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
+        <div className="px-4 py-2.5 flex items-center gap-3">
+          <Logo size="sm" />
 
-          <nav className="flex gap-4 flex-1 justify-center">
-            <NavLink to="/client/programs"
-              className={({ isActive }) => isActive ? 'text-blue-600 font-medium text-sm' : 'text-gray-500 hover:text-gray-900 text-sm'}>
-              Programmes
-            </NavLink>
-            <NavLink to="/client/checkin"
-              className={({ isActive }) => isActive ? 'text-blue-600 font-medium text-sm' : 'text-gray-500 hover:text-gray-900 text-sm'}>
-              Check-in
-            </NavLink>
-            <NavLink to="/client/progression"
-              className={({ isActive }) => isActive ? 'text-blue-600 font-medium text-sm' : 'text-gray-500 hover:text-gray-900 text-sm'}>
-              ⚡ Progression
-            </NavLink>
+          <nav className="flex gap-1 flex-1 justify-center">
+            {[
+              { to: '/client/programs', label: 'Programmes' },
+              { to: '/client/checkin',  label: 'Check-in' },
+              { to: '/client/progression', label: '⚡ Progression' },
+            ].map(({ to, label }) => (
+              <NavLink key={to} to={to}
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    isActive ? 'text-black' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                  }`
+                }
+                style={({ isActive }) => isActive ? { backgroundColor: MOOV_GREEN, color: '#000' } : {}}
+              >
+                {label}
+              </NavLink>
+            ))}
           </nav>
 
           <div className="flex items-center gap-2 shrink-0">
             {stats && (
               <>
-                <span className="text-orange-500 font-semibold text-sm">🔥 {stats.streak_days}</span>
+                <span className="text-sm font-semibold" style={{ color: '#f97316' }}>
+                  🔥 {stats.streak_days}
+                </span>
                 {level && (
-                  <span
-                    className="hidden sm:inline px-2 py-0.5 rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: level.color }}
-                  >
+                  <span className="hidden sm:inline px-2 py-0.5 rounded-full text-xs font-bold text-black"
+                    style={{ backgroundColor: MOOV_GREEN }}>
                     Niv.{level.level}
                   </span>
                 )}
@@ -55,19 +62,19 @@ export default function ClientLayout({ children }) {
             <button
               onClick={handleLogout}
               title={`Déconnecter ${profile?.email ?? ''}`}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors ml-1">
-              <span className="hidden sm:inline max-w-[120px] truncate">{profile?.email}</span>
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors ml-1">
+              <span className="hidden sm:inline max-w-[100px] truncate">{profile?.email}</span>
               <span>↩</span>
             </button>
           </div>
         </div>
 
-        {/* XP progress bar */}
+        {/* XP progress bar — MoovLab green */}
         <div className="h-1 bg-gray-100">
           {stats && (
             <div
               className="h-full transition-all duration-1000"
-              style={{ width: `${progress}%`, backgroundColor: level?.color ?? '#3B82F6' }}
+              style={{ width: `${progress}%`, backgroundColor: MOOV_GREEN }}
             />
           )}
         </div>
