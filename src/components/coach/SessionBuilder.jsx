@@ -495,106 +495,57 @@ function calcDuration(type, data) {
 }
 
 // ─── Predefined session picker ────────────────────────────────────────────────
-const SPORT_TYPE_MAP = {
-  running: 'running', trail: 'running',
-  cycling: 'cycling', home_trainer: 'cycling',
-  strength: 'strength', mobility: 'strength',
-  swimming: 'swimming',
-}
-
-function PredefinedPicker({ sessionType, onSelect }) {
-  const [exercises, setExercises] = useState([])
+function PredefinedPicker({ sessionType, coachId, onSelect }) {
+  const [programs, setPrograms] = useState([])
   const [loading, setLoading] = useState(true)
-  const sportType = SPORT_TYPE_MAP[sessionType] ?? null
 
   useEffect(() => {
-    if (!sportType) { setLoading(false); return }
-    supabase.from('exercises')
-      .select('id, name, sport_type, session_params, description')
-      .eq('sport_type', sportType)
+    if (!coachId) { setLoading(false); return }
+    let query = supabase.from('programs')
+      .select('id, name, description, sport_type, session_data')
+      .eq('coach_id', coachId)
       .order('name')
-      .then(({ data }) => { setExercises(data ?? []); setLoading(false) })
-  }, [sportType])
+    if (sessionType && sessionType !== 'other') {
+      query = query.eq('sport_type', sessionType)
+    }
+    query.then(({ data }) => { setPrograms(data ?? []); setLoading(false) })
+  }, [sessionType, coachId])
 
-  function buildData(ex) {
-    const p = ex.session_params
-    if (sportType === 'running') {
-      if (!p) return {}
-      return {
-        main: {
-          mode: 'intervals',
-          intervals: [{
-            id: Date.now(),
-            reps: p.reps ?? 1,
-            distance_m: p.mode === 'dist' ? p.work : '',
-            duration_sec: p.mode === 'time' ? p.work : '',
-            zone: (p.zone ?? 'Z4').startsWith('Z') ? (p.zone ?? 'Z4').slice(0, 2) : 'Z4',
-            vma_pct: p.pct ?? 100,
-            recovery_type: 'jog',
-            recovery_min: p.rest_mode === 'time' ? +(p.rest / 60).toFixed(1) : '',
-            recovery_dist_m: p.rest_mode === 'dist' ? p.rest : '',
-          }],
-        },
-        warmup: { duration_min: 10, zone: 'Z1', notes: 'Footing progressif' },
-        cooldown: { duration_min: 10, zone: 'Z1', notes: 'Footing lent + étirements' },
-      }
+  async function handleSelect(prog) {
+    // If we stored the full session_data on the template, use it directly
+    if (prog.session_data && Object.keys(prog.session_data).length > 0) {
+      onSelect(prog.session_data, prog.name)
+      return
     }
-    if (sportType === 'cycling') {
-      if (!p) return {}
-      const zMap = { 1: 'Z1', 2: 'Z1', 3: 'Z2', 4: 'Z3', 5: 'Z4', 6: 'Z5', 7: 'Z5' }
-      return {
-        main: {
-          mode: 'intervals',
-          intervals: [{
-            id: Date.now(),
-            reps: p.reps ?? 1,
-            duration_sec: (p.duration_min ?? 15) * 60,
-            distance_m: '',
-            zone: zMap[p.zone ?? 4] ?? 'Z3',
-            vma_pct: 100,
-            recovery_type: 'rest',
-            recovery_min: p.rest_min ?? 5,
-            recovery_dist_m: '',
-          }],
-        },
-        warmup: { duration_min: 10, zone: 'Z1', notes: 'Mise en route progressive' },
-        cooldown: { duration_min: 10, zone: 'Z1', notes: 'Récupération active' },
-      }
-    }
-    // strength / swimming / other
-    const sets = p?.default_sets ?? []
-    return {
-      exercises: [{
-        exercise_id: ex.id,
-        exercise_name: ex.name,
-        sets: sets.length || 3,
-        reps: sets[0]?.reps ?? 10,
-        weight_kg: sets[0]?.weight_kg ?? '',
-        rest_sec: sets[0]?.rest_sec ?? 60,
-        notes: ex.description ?? '',
-      }],
-    }
-  }
-
-  function descLine(ex) {
-    const p = ex.session_params
-    if (!p) return null
-    if (sportType === 'running' && p.pct)
-      return `${p.pct}% VMA · ${p.reps ?? 1}×${p.work}${p.mode === 'dist' ? 'm' : '"'}`
-    if (sportType === 'cycling' && p.zone)
-      return `Zone ${p.zone} · ${p.reps ?? 1}×${p.duration_min}min`
-    if (p.default_sets?.length)
-      return `${p.default_sets.length} série${p.default_sets.length > 1 ? 's' : ''} par défaut`
-    return null
+    // Fallback: reconstruct exercises list from program_sessions → session_exercises
+    const { data: sessions } = await supabase
+      .from('program_sessions')
+      .select('*, session_exercises(*, exercise:exercises(id, name))')
+      .eq('program_id', prog.id)
+      .order('week').order('day')
+    const exList = (sessions ?? []).flatMap(s =>
+      (s.session_exercises ?? [])
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map(se => ({
+          exercise_id: se.exercise_id,
+          exercise_name: se.exercise?.name ?? '',
+          sets: se.sets ?? 3,
+          reps: parseInt(se.reps) || 10,
+          weight_kg: '',
+          rest_sec: se.rest_seconds ?? 90,
+          notes: se.notes ?? '',
+        }))
+    )
+    onSelect({ exercises: exList }, prog.name)
   }
 
   if (loading) return <p className="text-sm text-gray-400 py-3 text-center">Chargement...</p>
 
-  if (!sportType || exercises.length === 0) {
+  if (programs.length === 0) {
     return (
       <div className="rounded-xl bg-gray-50 border border-dashed p-5 text-center text-sm text-gray-400">
-        Aucune séance prédéfinie pour ce type.<br />
-        <span className="text-xs">Créez-en depuis <strong>Exercices → Nouvel exercice</strong>.</span>
+        Aucune séance enregistrée pour ce type.<br />
+        <span className="text-xs">Cochez <strong>"Sauvegarder comme modèle"</strong> lors de la création d'une séance, ou créez-en depuis <strong>Séances</strong>.</span>
       </div>
     )
   }
@@ -602,21 +553,28 @@ function PredefinedPicker({ sessionType, onSelect }) {
   return (
     <div className="rounded-xl border overflow-hidden">
       <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-        Bibliothèque — {exercises.length} séance{exercises.length > 1 ? 's' : ''}
+        Bibliothèque — {programs.length} séance{programs.length > 1 ? 's' : ''}
       </div>
-      <div className="divide-y max-h-56 overflow-y-auto">
-        {exercises.map(ex => (
-          <button key={ex.id} type="button"
-            onClick={() => onSelect(buildData(ex), ex.name)}
-            className="w-full text-left px-4 py-3 hover:bg-green-50 transition-colors flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">{ex.name}</p>
-              {descLine(ex) && <p className="text-xs text-blue-600 mt-0.5">{descLine(ex)}</p>}
-              {ex.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{ex.description}</p>}
-            </div>
-            <span className="text-green-500 text-xl shrink-0">+</span>
-          </button>
-        ))}
+      <div className="divide-y max-h-64 overflow-y-auto">
+        {programs.map(prog => {
+          const type = SESSION_TYPES[prog.sport_type] ?? SESSION_TYPES.other
+          const hasData = prog.session_data && Object.keys(prog.session_data).length > 0
+          return (
+            <button key={prog.id} type="button"
+              onClick={() => handleSelect(prog)}
+              className="w-full text-left px-4 py-3 hover:bg-green-50 transition-colors flex items-center gap-3">
+              <span className="text-xl shrink-0">{type.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{prog.name}</p>
+                {prog.description
+                  ? <p className="text-xs text-gray-400 mt-0.5 truncate">{prog.description}</p>
+                  : <p className="text-xs text-gray-300 mt-0.5">{hasData ? 'Séance complète' : 'Exercices enregistrés'}</p>
+                }
+              </div>
+              <span className="text-green-500 text-xl shrink-0">+</span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -677,7 +635,7 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
     // Also save to programs library
     if (saveAsTemplate && !isEdit) {
       const { data: prog } = await supabase.from('programs')
-        .insert({ name: sessionTitle, description, coach_id: coachId, sport_type: sessionType })
+        .insert({ name: sessionTitle, description, coach_id: coachId, sport_type: sessionType, session_data: sessionData })
         .select().single()
       if (prog) {
         const { data: sess } = await supabase.from('program_sessions')
@@ -783,6 +741,7 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
               {predefinedOpen && (
                 <PredefinedPicker
                   sessionType={sessionType}
+                  coachId={coachId}
                   onSelect={(data, name) => {
                     setSessionData(data)
                     if (name) setTitle(name)
