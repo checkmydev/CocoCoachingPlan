@@ -340,7 +340,7 @@ function GymBuilder({ value, onChange }) {
     const q = search.trim()
     if (q.length < 1) { setLibrary([]); return }
     setLoading(true)
-    supabase.from('exercises').select('id, name, muscle_group').ilike('name', `%${q}%`).limit(8)
+    supabase.from('exercises').select('id, name, muscle_groups').ilike('name', `%${q}%`).limit(8)
       .then(({ data }) => { setLibrary(data ?? []); setLoading(false) })
   }, [search])
 
@@ -376,7 +376,7 @@ function GymBuilder({ value, onChange }) {
               <button key={ex.id} type="button" onClick={() => addExercise(ex)}
                 className="w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors border-b last:border-b-0">
                 <span className="font-medium">{ex.name}</span>
-                {ex.muscle_group && <span className="text-xs text-gray-400 ml-2">{ex.muscle_group}</span>}
+                {ex.muscle_groups?.length > 0 && <span className="text-xs text-gray-400 ml-2">{ex.muscle_groups.join(', ')}</span>}
               </button>
             ))}
           </div>
