@@ -11,6 +11,7 @@ import { supabase } from '../../lib/supabase'
 import { usePrograms } from '../../hooks/usePrograms'
 import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
+import SessionBuilder from '../../components/coach/SessionBuilder'
 
 const MOOV_GREEN = '#39E229'
 const DAYS_HEADER = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -32,128 +33,9 @@ function getMonthWeeks(month) {
   return weeks
 }
 
-// ─── Session form modal ──────────────────────────────────────────────────────
-function SessionModal({ day, session, coachId, clientId, onSave, onDelete, onClose }) {
-  const isEdit = Boolean(session)
-  const [form, setForm] = useState({
-    session_date: session?.session_date ?? format(day ?? new Date(), 'yyyy-MM-dd'),
-    session_type: session?.session_type ?? 'running',
-    title: session?.title ?? '',
-    duration_minutes: session?.duration_minutes ?? 60,
-    objective: session?.objective ?? '',
-    description: session?.description ?? '',
-  })
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-
-  function handleChange(e) {
-    const { name, value } = e.target
-    setForm(p => ({ ...p, [name]: value }))
-  }
-
-  async function handleSave() {
-    setSaving(true)
-    if (isEdit) {
-      await supabase.from('planned_sessions').update({
-        ...form,
-        duration_minutes: parseInt(form.duration_minutes) || 60,
-      }).eq('id', session.id)
-    } else {
-      await supabase.from('planned_sessions').insert({
-        ...form,
-        duration_minutes: parseInt(form.duration_minutes) || 60,
-        client_id: clientId,
-        coach_id: coachId,
-        completed: false,
-      })
-    }
-    setSaving(false)
-    onSave()
-  }
-
-  async function handleDelete() {
-    setDeleting(true)
-    await supabase.from('planned_sessions').delete().eq('id', session.id)
-    setDeleting(false)
-    onDelete()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-        <h3 className="font-bold text-lg mb-4">{isEdit ? 'Modifier la séance' : 'Planifier une séance'}</h3>
-
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
-              <input type="date" name="session_date" value={form.session_date} onChange={handleChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Durée (min)</label>
-              <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange}
-                min={5} max={480}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Type de séance</label>
-            <select name="session_type" value={form.session_type} onChange={handleChange}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
-              {Object.entries(SESSION_TYPES).map(([key, { label, emoji }]) => (
-                <option key={key} value={key}>{emoji} {label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Titre</label>
-            <input type="text" name="title" value={form.title} onChange={handleChange}
-              placeholder="Ex: Sortie longue, Fractionné 10x400m..."
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Objectif de la séance</label>
-            <input type="text" name="objective" value={form.objective} onChange={handleChange}
-              placeholder="Ex: Travailler l'endurance de base..."
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Consignes / Description</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={3}
-              placeholder="Instructions détaillées..."
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" />
-          </div>
-        </div>
-
-        <div className="flex gap-2 mt-5">
-          {isEdit && (
-            <button onClick={handleDelete} disabled={deleting}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50">
-              {deleting ? '...' : 'Supprimer'}
-            </button>
-          )}
-          <button onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 hover:bg-gray-50">
-            Annuler
-          </button>
-          <button onClick={handleSave} disabled={saving}
-            className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60"
-            style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
-            {saving ? '...' : isEdit ? 'Enregistrer' : '+ Planifier'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ─── Coach calendar ──────────────────────────────────────────────────────────
-function CoachCalendar({ clientId, coachId, logs }) {
+function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp }) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
   const [tab, setTab] = useState('planned') // 'planned' | 'done' | 'both'
   const [planned, setPlanned] = useState([])
@@ -318,15 +200,16 @@ function CoachCalendar({ clientId, coachId, logs }) {
         </table>
       </div>
 
-      {/* Modals */}
-      {(modalDay || editSession) && (
-        <SessionModal
+      {/* Session builder (portal-rendered, always on top) */}
+      {(modalDay !== null || editSession) && (
+        <SessionBuilder
           day={modalDay}
           session={editSession}
           coachId={coachId}
           clientId={clientId}
+          clientVma={clientVma}
+          clientFtp={clientFtp}
           onSave={afterSave}
-          onDelete={afterSave}
           onClose={closeModal}
         />
       )}
@@ -486,6 +369,8 @@ export default function ClientDetail() {
               <span className="text-gray-400">Motivation</span>  <span>{scaleEmoji(clientProfile.scale_motivation)} {clientProfile.scale_motivation}/7</span>
               <span className="text-gray-400">Confiance</span>   <span>{scaleEmoji(clientProfile.scale_confidence)} {clientProfile.scale_confidence}/7</span>
               <span className="text-gray-400">Dispo</span>       <span>{scaleEmoji(clientProfile.scale_availability)} {clientProfile.scale_availability}/7</span>
+              {clientProfile.vma_kmh  && <><span className="text-gray-400">VMA</span>  <span className="font-bold text-blue-600">{clientProfile.vma_kmh} km/h</span></>}
+              {clientProfile.ftp_watts && <><span className="text-gray-400">FTP</span> <span className="font-bold text-purple-600">{clientProfile.ftp_watts} W</span></>}
             </div>
           ) : <p className="text-sm text-gray-400 italic">Non renseigné</p>}
         </div>
@@ -506,7 +391,13 @@ export default function ClientDetail() {
 
       {/* Calendar section */}
       {section === 'calendar' && (
-        <CoachCalendar clientId={id} coachId={profile?.id} logs={logs} />
+        <CoachCalendar
+          clientId={id}
+          coachId={profile?.id}
+          logs={logs}
+          clientVma={clientProfile?.vma_kmh ?? null}
+          clientFtp={clientProfile?.ftp_watts ?? null}
+        />
       )}
 
       {/* Programs section */}
