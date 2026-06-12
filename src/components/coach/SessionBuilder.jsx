@@ -330,7 +330,7 @@ function SwimBuilder({ value, onChange }) {
 }
 
 // ─── Gym / Strength / Mobility builder ────────────────────────────────────────
-function GymBuilder({ value, onChange }) {
+function GymBuilder({ value, onChange, sportType }) {
   const [search, setSearch] = useState('')
   const [library, setLibrary] = useState([])
   const [loading, setLoading] = useState(false)
@@ -340,9 +340,10 @@ function GymBuilder({ value, onChange }) {
     const q = search.trim()
     if (q.length < 1) { setLibrary([]); return }
     setLoading(true)
-    supabase.from('exercises').select('id, name, muscle_groups').ilike('name', `%${q}%`).limit(8)
-      .then(({ data }) => { setLibrary(data ?? []); setLoading(false) })
-  }, [search])
+    let query = supabase.from('exercises').select('id, name, muscle_groups, sport_type').ilike('name', `%${q}%`)
+    if (sportType && sportType !== 'other') query = query.eq('sport_type', sportType)
+    query.limit(8).then(({ data }) => { setLibrary(data ?? []); setLoading(false) })
+  }, [search, sportType])
 
   function addExercise(ex) {
     if (exercises.find(e => e.exercise_id === ex.id)) return
@@ -493,10 +494,139 @@ function calcDuration(type, data) {
   return Math.max(15, Math.round(total)) || 60
 }
 
+// ─── Predefined session picker ────────────────────────────────────────────────
+const SPORT_TYPE_MAP = {
+  running: 'running', trail: 'running',
+  cycling: 'cycling', home_trainer: 'cycling',
+  strength: 'strength', mobility: 'strength',
+  swimming: 'swimming',
+}
+
+function PredefinedPicker({ sessionType, onSelect }) {
+  const [exercises, setExercises] = useState([])
+  const [loading, setLoading] = useState(true)
+  const sportType = SPORT_TYPE_MAP[sessionType] ?? null
+
+  useEffect(() => {
+    if (!sportType) { setLoading(false); return }
+    supabase.from('exercises')
+      .select('id, name, sport_type, session_params, description')
+      .eq('sport_type', sportType)
+      .order('name')
+      .then(({ data }) => { setExercises(data ?? []); setLoading(false) })
+  }, [sportType])
+
+  function buildData(ex) {
+    const p = ex.session_params
+    if (sportType === 'running') {
+      if (!p) return {}
+      return {
+        main: {
+          mode: 'intervals',
+          intervals: [{
+            id: Date.now(),
+            reps: p.reps ?? 1,
+            distance_m: p.mode === 'dist' ? p.work : '',
+            duration_sec: p.mode === 'time' ? p.work : '',
+            zone: (p.zone ?? 'Z4').startsWith('Z') ? (p.zone ?? 'Z4').slice(0, 2) : 'Z4',
+            vma_pct: p.pct ?? 100,
+            recovery_type: 'jog',
+            recovery_min: p.rest_mode === 'time' ? +(p.rest / 60).toFixed(1) : '',
+            recovery_dist_m: p.rest_mode === 'dist' ? p.rest : '',
+          }],
+        },
+        warmup: { duration_min: 10, zone: 'Z1', notes: 'Footing progressif' },
+        cooldown: { duration_min: 10, zone: 'Z1', notes: 'Footing lent + étirements' },
+      }
+    }
+    if (sportType === 'cycling') {
+      if (!p) return {}
+      const zMap = { 1: 'Z1', 2: 'Z1', 3: 'Z2', 4: 'Z3', 5: 'Z4', 6: 'Z5', 7: 'Z5' }
+      return {
+        main: {
+          mode: 'intervals',
+          intervals: [{
+            id: Date.now(),
+            reps: p.reps ?? 1,
+            duration_sec: (p.duration_min ?? 15) * 60,
+            distance_m: '',
+            zone: zMap[p.zone ?? 4] ?? 'Z3',
+            vma_pct: 100,
+            recovery_type: 'rest',
+            recovery_min: p.rest_min ?? 5,
+            recovery_dist_m: '',
+          }],
+        },
+        warmup: { duration_min: 10, zone: 'Z1', notes: 'Mise en route progressive' },
+        cooldown: { duration_min: 10, zone: 'Z1', notes: 'Récupération active' },
+      }
+    }
+    // strength / swimming / other
+    const sets = p?.default_sets ?? []
+    return {
+      exercises: [{
+        exercise_id: ex.id,
+        exercise_name: ex.name,
+        sets: sets.length || 3,
+        reps: sets[0]?.reps ?? 10,
+        weight_kg: sets[0]?.weight_kg ?? '',
+        rest_sec: sets[0]?.rest_sec ?? 60,
+        notes: ex.description ?? '',
+      }],
+    }
+  }
+
+  function descLine(ex) {
+    const p = ex.session_params
+    if (!p) return null
+    if (sportType === 'running' && p.pct)
+      return `${p.pct}% VMA · ${p.reps ?? 1}×${p.work}${p.mode === 'dist' ? 'm' : '"'}`
+    if (sportType === 'cycling' && p.zone)
+      return `Zone ${p.zone} · ${p.reps ?? 1}×${p.duration_min}min`
+    if (p.default_sets?.length)
+      return `${p.default_sets.length} série${p.default_sets.length > 1 ? 's' : ''} par défaut`
+    return null
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 py-3 text-center">Chargement...</p>
+
+  if (!sportType || exercises.length === 0) {
+    return (
+      <div className="rounded-xl bg-gray-50 border border-dashed p-5 text-center text-sm text-gray-400">
+        Aucune séance prédéfinie pour ce type.<br />
+        <span className="text-xs">Créez-en depuis <strong>Exercices → Nouvel exercice</strong>.</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border overflow-hidden">
+      <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        Bibliothèque — {exercises.length} séance{exercises.length > 1 ? 's' : ''}
+      </div>
+      <div className="divide-y max-h-56 overflow-y-auto">
+        {exercises.map(ex => (
+          <button key={ex.id} type="button"
+            onClick={() => onSelect(buildData(ex), ex.name)}
+            className="w-full text-left px-4 py-3 hover:bg-green-50 transition-colors flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">{ex.name}</p>
+              {descLine(ex) && <p className="text-xs text-blue-600 mt-0.5">{descLine(ex)}</p>}
+              {ex.description && <p className="text-xs text-gray-400 mt-0.5 truncate">{ex.description}</p>}
+            </div>
+            <span className="text-green-500 text-xl shrink-0">+</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main SessionBuilder modal ────────────────────────────────────────────────
 export default function SessionBuilder({ day, session, clientId, coachId, clientVma, clientFtp, onSave, onClose }) {
   const isEdit = Boolean(session)
-  const [step, setStep] = useState(isEdit ? 2 : 1) // 1=type picker, 2=form
+  const [step, setStep] = useState(isEdit ? 3 : 1) // 1=type picker, 2=mode, 3=form
+  const [predefinedOpen, setPredefinedOpen] = useState(false)
   const [sessionType, setSessionType] = useState(session?.session_type ?? null)
   const [title, setTitle] = useState(session?.title ?? '')
   const [sessionDate, setSessionDate] = useState(
@@ -514,7 +644,8 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
 
   function selectType(key) {
     setSessionType(key)
-    setStep(2)
+    setStep(2) // → mode picker (new vs predefined)
+    setPredefinedOpen(false)
     if (!title) setTitle(SESSION_TYPES[key]?.label ?? '')
   }
 
@@ -562,13 +693,14 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b">
-          {step === 2 && !isEdit && (
-            <button type="button" onClick={() => setStep(1)}
+          {step > 1 && !isEdit && (
+            <button type="button" onClick={() => { setStep(s => s - 1); setPredefinedOpen(false) }}
               className="text-gray-400 hover:text-gray-700 text-lg">←</button>
           )}
           <div className="flex-1">
             <h3 className="font-bold text-lg">
-              {step === 1 ? 'Choisir le type de séance'
+              {step === 1 ? 'Type de séance'
+                : step === 2 ? `${type?.emoji} ${type?.label} — Choisir`
                 : isEdit ? 'Modifier la séance'
                 : `${type?.emoji} ${type?.label}`}
             </h3>
@@ -596,8 +728,42 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
             </div>
           )}
 
-          {/* Step 2: Builder */}
+          {/* Step 2: Mode picker — new vs predefined */}
           {step === 2 && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setStep(3)}
+                  className="flex flex-col items-center gap-2 p-5 rounded-2xl border-2 border-gray-200 hover:border-green-400 hover:bg-green-50 transition-all">
+                  <span className="text-3xl">✏️</span>
+                  <span className="font-semibold text-sm">Nouvelle séance</span>
+                  <span className="text-xs text-gray-500 text-center leading-snug">Créer depuis zéro avec les outils</span>
+                </button>
+                <button type="button" onClick={() => setPredefinedOpen(o => !o)}
+                  className={`flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all ${
+                    predefinedOpen ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                  }`}>
+                  <span className="text-3xl">📚</span>
+                  <span className="font-semibold text-sm">Séance prédéfinie</span>
+                  <span className="text-xs text-gray-500 text-center leading-snug">Depuis la bibliothèque d'exercices</span>
+                </button>
+              </div>
+
+              {predefinedOpen && (
+                <PredefinedPicker
+                  sessionType={sessionType}
+                  onSelect={(data, name) => {
+                    setSessionData(data)
+                    if (name) setTitle(name)
+                    setPredefinedOpen(false)
+                    setStep(3)
+                  }}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Builder */}
+          {step === 3 && (
             <div className="space-y-4">
               {/* Common fields */}
               <div className="grid grid-cols-2 gap-3">
@@ -639,7 +805,7 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
                 <SwimBuilder value={sessionData} onChange={setSessionData} />
               )}
               {isGym && (
-                <GymBuilder value={sessionData} onChange={setSessionData} />
+                <GymBuilder value={sessionData} onChange={setSessionData} sportType={sessionType} />
               )}
               {sessionType === 'day_off' && (
                 <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500 text-center">
@@ -651,7 +817,7 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
         </div>
 
         {/* Footer */}
-        {step === 2 && (
+        {step === 3 && (
           <div className="flex gap-2 px-5 py-4 border-t">
             {isEdit && (
               <button type="button" onClick={handleDelete} disabled={deleting}

@@ -143,7 +143,11 @@ export default function ProgramBuilder() {
     setSaving(false)
   }
 
-  const filteredLib = library.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+  const filteredLib = library.filter(e => {
+    const matchName = e.name.toLowerCase().includes(search.toLowerCase())
+    const matchSport = !sportType || sportType === 'other' || (e.sport_type ?? 'strength') === sportType
+    return matchName && matchSport
+  })
   const selectedType = SESSION_TYPES[sportType]
 
   // Step 1: category picker
