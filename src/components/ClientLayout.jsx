@@ -24,7 +24,9 @@ export default function ClientLayout({ children }) {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="px-4 py-2.5 flex items-center gap-3">
-          <Logo size="sm" />
+          <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#0f0f0f' }}>
+            <Logo size="sm" />
+          </div>
 
           <nav className="flex gap-1 flex-1 justify-center">
             {[
