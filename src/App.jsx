@@ -15,6 +15,9 @@ import ProgramDetail from './pages/client/ProgramDetail'
 import ActiveSession from './pages/client/ActiveSession'
 import CheckIn from './pages/client/CheckIn'
 import Progression from './pages/client/Progression'
+import Calendar from './pages/client/Calendar'
+import Nutrition from './pages/client/Nutrition'
+import Lifestyle from './pages/client/Lifestyle'
 
 function ClientRoutes() {
   return (
@@ -46,6 +49,9 @@ export default function App() {
           <Route path="session/:id" element={<ActiveSession />} />
           <Route path="checkin" element={<CheckIn />} />
           <Route path="progression" element={<Progression />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="nutrition" element={<Nutrition />} />
+          <Route path="lifestyle" element={<Lifestyle />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

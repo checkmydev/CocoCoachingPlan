@@ -4,9 +4,14 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { usePrograms } from '../../hooks/usePrograms'
+import { useAuth } from '../../contexts/AuthContext'
+import { SESSION_TYPES } from '../../lib/sessionTypes'
+
+const MOOV_GREEN = '#39E229'
 
 export default function ClientDetail() {
   const { id } = useParams()
+  const { profile } = useAuth()
   const { programs } = usePrograms()
   const [client, setClient] = useState(null)
   const [clientPrograms, setClientPrograms] = useState([])
@@ -17,11 +22,25 @@ export default function ClientDetail() {
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
 
+  // Planned sessions state
+  const [plannedSessions, setPlannedSessions] = useState([])
+  const [sessionForm, setSessionForm] = useState({
+    session_date: '',
+    session_type: 'running',
+    title: '',
+    description: '',
+    duration_minutes: 60,
+    objective: '',
+  })
+  const [savingSession, setSavingSession] = useState(false)
+  const [sessionError, setSessionError] = useState(null)
+
   useEffect(() => {
     loadClient()
     loadClientPrograms()
     loadLogs()
     loadCheckins()
+    loadPlannedSessions()
   }, [id])
 
   async function loadClient() {
@@ -59,6 +78,17 @@ export default function ClientDetail() {
     setCheckins(data ?? [])
   }
 
+  async function loadPlannedSessions() {
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await supabase
+      .from('planned_sessions')
+      .select('*')
+      .eq('client_id', id)
+      .gte('session_date', today)
+      .order('session_date', { ascending: true })
+    setPlannedSessions(data ?? [])
+  }
+
   async function assignProgram(e) {
     e.preventDefault()
     if (!selectedProgram) return
@@ -83,6 +113,51 @@ export default function ClientDetail() {
     setSavingNotes(true)
     await supabase.from('profiles').update({ coach_notes: notes }).eq('id', id)
     setSavingNotes(false)
+  }
+
+  function handleSessionFormChange(e) {
+    const { name, value } = e.target
+    setSessionForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  async function handlePlanSession(e) {
+    e.preventDefault()
+    setSessionError(null)
+    if (!sessionForm.session_date) {
+      setSessionError('La date de la séance est requise.')
+      return
+    }
+    setSavingSession(true)
+    const { error } = await supabase.from('planned_sessions').insert({
+      client_id: id,
+      coach_id: profile.id,
+      session_date: sessionForm.session_date,
+      session_type: sessionForm.session_type,
+      title: sessionForm.title || null,
+      description: sessionForm.description || null,
+      duration_minutes: parseInt(sessionForm.duration_minutes, 10) || 60,
+      objective: sessionForm.objective || null,
+      completed: false,
+    })
+    setSavingSession(false)
+    if (error) {
+      setSessionError('Erreur lors de la création de la séance.')
+    } else {
+      setSessionForm({
+        session_date: '',
+        session_type: 'running',
+        title: '',
+        description: '',
+        duration_minutes: 60,
+        objective: '',
+      })
+      await loadPlannedSessions()
+    }
+  }
+
+  async function deletePlannedSession(sessionId) {
+    await supabase.from('planned_sessions').delete().eq('id', sessionId)
+    await loadPlannedSessions()
   }
 
   const completionByWeek = logs
@@ -168,6 +243,100 @@ export default function ClientDetail() {
             {savingNotes ? 'Sauvegarde...' : 'Sauvegarder'}
           </button>
         </div>
+      </div>
+
+      {/* Planned sessions section */}
+      <div className="bg-white rounded-xl border shadow-sm p-5 mb-6">
+        <h2 className="font-semibold mb-4">Planifier une séance</h2>
+        <form onSubmit={handlePlanSession} className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
+              <input type="date" name="session_date" value={sessionForm.session_date} onChange={handleSessionFormChange} required
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                style={{ '--tw-ring-color': MOOV_GREEN }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Type de séance</label>
+              <select name="session_type" value={sessionForm.session_type} onChange={handleSessionFormChange}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2">
+                {Object.entries(SESSION_TYPES).map(([key, { label, emoji }]) => (
+                  <option key={key} value={key}>{emoji} {label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Titre</label>
+              <input type="text" name="title" value={sessionForm.title} onChange={handleSessionFormChange}
+                placeholder="Ex: Sortie longue, Fractionné..."
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Durée (minutes)</label>
+              <input type="number" name="duration_minutes" value={sessionForm.duration_minutes} onChange={handleSessionFormChange}
+                min={5} max={480}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Objectif</label>
+            <input type="text" name="objective" value={sessionForm.objective} onChange={handleSessionFormChange}
+              placeholder="Ex: Améliorer l'endurance de base, travailler la cadence..."
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Description / Consignes</label>
+            <textarea name="description" value={sessionForm.description} onChange={handleSessionFormChange} rows={3}
+              placeholder="Instructions détaillées pour la séance..."
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none" />
+          </div>
+          {sessionError && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{sessionError}</p>
+          )}
+          <button type="submit" disabled={savingSession}
+            className="w-full rounded-lg py-2.5 text-sm font-bold disabled:opacity-60 transition-colors"
+            style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+            {savingSession ? 'Planification...' : '+ Planifier cette séance'}
+          </button>
+        </form>
+
+        {plannedSessions.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Séances à venir ({plannedSessions.length})</h3>
+            <div className="divide-y">
+              {plannedSessions.map(s => {
+                const type = SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other
+                return (
+                  <div key={s.id} className="flex items-center justify-between py-3 gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-2xl shrink-0">{type.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{s.title || type.label}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                            style={{ backgroundColor: type.bg, color: type.color }}>
+                            {type.label}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {format(new Date(s.session_date + 'T12:00:00'), 'dd/MM/yyyy')}
+                          </span>
+                          <span className="text-xs text-gray-400">{s.duration_minutes} min</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deletePlannedSession(s.id)}
+                      className="shrink-0 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors">
+                      Supprimer
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
