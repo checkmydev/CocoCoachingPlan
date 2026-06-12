@@ -5,62 +5,227 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
+import VideoPlayer from '../../components/VideoPlayer'
 
 const MOOV_GREEN = '#39E229'
 
+const ZONE_COLORS = { Z1: '#60A5FA', Z2: '#34D399', Z3: '#FBBF24', Z4: '#F87171', Z5: '#A78BFA' }
+
 function SessionModal({ session, onClose }) {
+  const [enrichedExercises, setEnrichedExercises] = useState([])
+
+  useEffect(() => {
+    if (!session) { setEnrichedExercises([]); return }
+    const exList = session.session_data?.exercises ?? []
+    const ids = exList.map(e => e.exercise_id).filter(Boolean)
+    if (ids.length === 0) { setEnrichedExercises([]); return }
+    supabase.from('exercises')
+      .select('id, name, description, instructions, muscle_groups, equipment, video_url')
+      .in('id', ids)
+      .then(({ data }) => {
+        const map = Object.fromEntries((data ?? []).map(e => [e.id, e]))
+        setEnrichedExercises(exList.map(ex => ({ ...ex, _detail: map[ex.exercise_id] ?? null })))
+      })
+  }, [session?.id])
+
   if (!session) return null
   const type = SESSION_TYPES[session.session_type] ?? SESSION_TYPES.other
+  const data = session.session_data ?? {}
+  const isCardio = ['running', 'trail', 'cycling'].includes(session.session_type)
+  const isGym = ['strength', 'mobility', 'home_trainer', 'other'].includes(session.session_type)
+  const isSwim = session.session_type === 'swimming'
+
+  const displayExercises = enrichedExercises.length > 0 ? enrichedExercises : (data.exercises ?? [])
+  const hasExercises = isGym && displayExercises.length > 0
+  const hasCardioData = (isCardio || isSwim) && (data.warmup || data.main || data.cooldown)
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6"
+      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full max-h-[85vh] flex flex-col"
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center gap-3 mb-4">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b shrink-0">
           <span className="text-3xl">{type.emoji}</span>
-          <div>
-            <h3 className="font-bold text-lg leading-tight">{session.title || type.label}</h3>
-            <span className="text-sm font-medium px-2 py-0.5 rounded-full"
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-lg leading-tight truncate">{session.title || type.label}</h3>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full"
               style={{ backgroundColor: type.bg, color: type.color }}>
               {type.label}
             </span>
           </div>
         </div>
-        <div className="space-y-3 text-sm text-gray-700">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">📅</span>
-            <span>{format(new Date(session.session_date + 'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</span>
-          </div>
-          {session.duration_minutes && (
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 divide-y">
+
+          {/* Meta */}
+          <div className="px-5 py-3 space-y-1.5 text-sm text-gray-700">
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">⏱</span>
-              <span>{session.duration_minutes} minutes</span>
+              <span className="text-gray-400">📅</span>
+              <span>{format(new Date(session.session_date + 'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</span>
+            </div>
+            {session.duration_minutes && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400">⏱</span>
+                <span>{session.duration_minutes} minutes</span>
+              </div>
+            )}
+            {session.objective && (
+              <div className="flex gap-2">
+                <span className="text-gray-400">🎯</span>
+                <span>{session.objective}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Gym exercises */}
+          {hasExercises && (
+            <div className="px-5 py-3 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Programme · {displayExercises.length} exercice{displayExercises.length > 1 ? 's' : ''}</p>
+              {displayExercises.map((ex, i) => {
+                const detail = ex._detail
+                return (
+                  <div key={ex.exercise_id ?? i} className="rounded-xl border bg-gray-50 overflow-hidden">
+                    {/* Exercise header */}
+                    <div className="px-3 py-2.5 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm">{i + 1}. {ex.exercise_name}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {ex.sets} séries × {ex.reps} rép.
+                          {ex.weight_kg ? ` · ${ex.weight_kg} kg` : ''}
+                          {ex.rest_sec ? ` · repos ${ex.rest_sec}s` : ''}
+                        </p>
+                        {detail?.muscle_groups?.length > 0 && (
+                          <p className="text-xs text-gray-400 mt-0.5">{detail.muscle_groups.join(' · ')}</p>
+                        )}
+                      </div>
+                    </div>
+                    {/* Notes from coach */}
+                    {ex.notes ? (
+                      <div className="px-3 pb-2 text-xs text-blue-700 bg-blue-50 border-t border-blue-100 py-1.5">
+                        💬 {ex.notes}
+                      </div>
+                    ) : null}
+                    {/* Description / instructions */}
+                    {(detail?.description || detail?.instructions) && (
+                      <div className="px-3 py-2 border-t space-y-1 bg-white">
+                        {detail.description && <p className="text-xs text-gray-600">{detail.description}</p>}
+                        {detail.instructions && (
+                          <p className="text-xs text-gray-500 whitespace-pre-wrap">{detail.instructions}</p>
+                        )}
+                      </div>
+                    )}
+                    {/* Video */}
+                    {detail?.video_url && (
+                      <div className="border-t">
+                        <VideoPlayer url={detail.video_url} />
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
-          {session.objective && (
-            <div className="flex gap-2">
-              <span className="text-gray-400 mt-0.5">🎯</span>
-              <div>
-                <p className="font-medium text-gray-800 mb-0.5">Objectif</p>
-                <p>{session.objective}</p>
-              </div>
+
+          {/* Cardio / Swim structure */}
+          {hasCardioData && (
+            <div className="px-5 py-3 space-y-2.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Séance</p>
+
+              {data.warmup?.duration_min && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="text-blue-400 mt-0.5">🔥</span>
+                  <div>
+                    <span className="font-medium">Échauffement</span>
+                    <span className="text-gray-500 ml-2">{data.warmup.duration_min} min
+                      {data.warmup.zone ? ` (${data.warmup.zone})` : ''}
+                    </span>
+                    {data.warmup.notes ? <p className="text-xs text-gray-400 mt-0.5">{data.warmup.notes}</p> : null}
+                  </div>
+                </div>
+              )}
+
+              {data.main?.mode === 'continuous' && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span>💪</span>
+                  <span className="font-medium">Corps</span>
+                  <span className="text-gray-600">
+                    {data.main.duration_min ? `${data.main.duration_min} min` : ''}
+                    {data.main.distance_km ? ` · ${data.main.distance_km} km` : ''}
+                  </span>
+                  {data.main.zone && (
+                    <span className="px-1.5 py-0.5 rounded text-xs font-bold text-white"
+                      style={{ backgroundColor: ZONE_COLORS[data.main.zone] ?? '#9ca3af' }}>
+                      {data.main.zone}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {data.main?.mode !== 'continuous' && (data.main?.intervals ?? []).length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-1.5">💪 Intervalles</p>
+                  <div className="space-y-1.5 ml-2">
+                    {data.main.intervals.map((intv, i) => (
+                      <div key={i} className="rounded-lg bg-gray-50 border px-3 py-2 text-xs flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-gray-800">
+                          {intv.reps}×{intv.distance_m ? `${intv.distance_m} m` : intv.duration_sec ? `${intv.duration_sec} s` : ''}
+                        </span>
+                        {intv.zone && (
+                          <span className="px-1.5 py-0.5 rounded font-bold text-white"
+                            style={{ backgroundColor: ZONE_COLORS[intv.zone] ?? '#9ca3af' }}>
+                            {intv.zone}
+                          </span>
+                        )}
+                        {intv.vma_pct ? <span className="text-gray-500">@ {intv.vma_pct}%</span> : null}
+                        {intv.recovery_min ? <span className="text-gray-400">· récup {intv.recovery_min} min</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {data.cooldown?.duration_min && (
+                <div className="flex items-start gap-2 text-sm">
+                  <span className="text-green-500 mt-0.5">🌿</span>
+                  <div>
+                    <span className="font-medium">Retour au calme</span>
+                    <span className="text-gray-500 ml-2">{data.cooldown.duration_min} min
+                      {data.cooldown.zone ? ` (${data.cooldown.zone})` : ''}
+                    </span>
+                    {data.cooldown.notes ? <p className="text-xs text-gray-400 mt-0.5">{data.cooldown.notes}</p> : null}
+                  </div>
+                </div>
+              )}
+
+              {isSwim && (data.equipment ?? []).length > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span>🏊</span>
+                  <span className="text-gray-600">{data.equipment.join(', ')}</span>
+                </div>
+              )}
             </div>
           )}
-          {session.description && (
-            <div className="flex gap-2">
-              <span className="text-gray-400 mt-0.5">📝</span>
-              <div>
-                <p className="font-medium text-gray-800 mb-0.5">Description</p>
-                <p className="whitespace-pre-wrap">{session.description}</p>
-              </div>
+
+          {/* Fallback: plain description */}
+          {!hasExercises && !hasCardioData && session.description && (
+            <div className="px-5 py-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1.5">Détail</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.description}</p>
             </div>
           )}
         </div>
-        <button onClick={onClose}
-          className="mt-5 w-full rounded-xl py-2.5 text-sm font-semibold"
-          style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
-          Fermer
-        </button>
+
+        {/* Footer */}
+        <div className="px-5 py-4 shrink-0 border-t">
+          <button onClick={onClose}
+            className="w-full rounded-xl py-2.5 text-sm font-semibold"
+            style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+            Fermer
+          </button>
+        </div>
       </div>
     </div>
   )
