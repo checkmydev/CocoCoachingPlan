@@ -14,6 +14,8 @@ export default function ProtectedRoute({ role }) {
     )
   }
   if (!session) return <Navigate to="/login" replace />
+  // Profile exists but no role — avoid redirect loop, send back to login
+  if (profile && !profile.role) return <Navigate to="/login" replace />
   if (profile && profile.role !== role) {
     return <Navigate to={profile.role === 'coach' ? '/coach/dashboard' : '/client/programs'} replace />
   }

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { StatsProvider } from './contexts/StatsContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/coach/Dashboard'
@@ -13,6 +14,15 @@ import MyPrograms from './pages/client/MyPrograms'
 import ProgramDetail from './pages/client/ProgramDetail'
 import ActiveSession from './pages/client/ActiveSession'
 import CheckIn from './pages/client/CheckIn'
+import Progression from './pages/client/Progression'
+
+function ClientRoutes() {
+  return (
+    <StatsProvider>
+      <ProtectedRoute role="client" />
+    </StatsProvider>
+  )
+}
 
 export default function App() {
   return (
@@ -30,11 +40,12 @@ export default function App() {
           <Route path="clients" element={<ClientList />} />
           <Route path="clients/:id" element={<ClientDetail />} />
         </Route>
-        <Route path="/client" element={<ProtectedRoute role="client" />}>
+        <Route path="/client" element={<ClientRoutes />}>
           <Route path="programs" element={<MyPrograms />} />
           <Route path="programs/:id" element={<ProgramDetail />} />
           <Route path="session/:id" element={<ActiveSession />} />
           <Route path="checkin" element={<CheckIn />} />
+          <Route path="progression" element={<Progression />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

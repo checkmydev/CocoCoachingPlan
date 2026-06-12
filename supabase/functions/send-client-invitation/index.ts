@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   const { email, coachName } = await req.json()
-  const appUrl = Deno.env.get('APP_URL') ?? 'https://your-username.github.io/CoachingApp'
+  const appUrl = Deno.env.get('APP_URL') ?? 'https://checkmydev.github.io/CocoCoachingPlan/'
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -19,7 +19,7 @@ serve(async (req) => {
 
   const redirectTo = appUrl.endsWith('/') ? appUrl : `${appUrl}/`
 
-  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+  const { data: inviteData, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { role: 'client' },
     redirectTo,
   })
@@ -29,6 +29,14 @@ serve(async (req) => {
       status: 400,
       headers: { ...cors, 'Content-Type': 'application/json' },
     })
+  }
+
+  // Ensure the profile exists with role='client' so the client can access the app
+  if (inviteData?.user?.id) {
+    await admin.from('profiles').upsert(
+      { id: inviteData.user.id, email: email, role: 'client' },
+      { onConflict: 'id', ignoreDuplicates: false }
+    )
   }
 
   return new Response(JSON.stringify({ success: true }), {
