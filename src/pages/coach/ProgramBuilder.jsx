@@ -21,9 +21,9 @@ export default function ProgramBuilder() {
   const [sportType, setSportType] = useState('other')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [sessions, setSessions] = useState([])
+  const [exercises, setExercises] = useState([])
   const [saving, setSaving] = useState(false)
-  const [openPickerFor, setOpenPickerFor] = useState(null)
+  const [openPicker, setOpenPicker] = useState(false)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
@@ -41,71 +41,40 @@ export default function ProgramBuilder() {
       .select('*, session_exercises(*, exercise:exercises(*))')
       .eq('program_id', id)
       .order('week').order('day')
-    setSessions((sess ?? []).map(s => ({
-      ...s,
-      exercises: (s.session_exercises ?? []).sort((a, b) => a.order - b.order)
-    })))
+    const allExercises = (sess ?? []).flatMap(s =>
+      (s.session_exercises ?? []).sort((a, b) => a.order - b.order)
+    )
+    setExercises(allExercises)
   }
 
-  const sessionKey = s => s.id ?? s._tempId
+  const exKey = e => e.id ?? e._tempId
 
-  function addSession() {
-    const maxWeek = sessions.reduce((m, s) => Math.max(m, s.week), 0)
-    setSessions(prev => [...prev, {
-      _tempId: Date.now(),
-      week: maxWeek + 1, day: 1,
-      name: `Séance ${prev.length + 1}`,
-      exercises: []
+  function addExercise(ex) {
+    if (exercises.find(e => e.exercise_id === ex.id)) return
+    setExercises(prev => [...prev, {
+      _tempId: Date.now() + Math.random(),
+      exercise_id: ex.id, exercise: ex,
+      sets: 3, reps: '10', rest_seconds: 60, notes: '', order: prev.length
     }])
-  }
-
-  function updateSession(key, field, value) {
-    setSessions(prev => prev.map(s => sessionKey(s) === key ? { ...s, [field]: value } : s))
-  }
-
-  function removeSession(key) {
-    setSessions(prev => prev.filter(s => sessionKey(s) !== key))
-  }
-
-  function addExToSession(key, ex) {
-    setSessions(prev => prev.map(s => {
-      if (sessionKey(s) !== key) return s
-      return {
-        ...s, exercises: [...s.exercises, {
-          _tempId: Date.now() + Math.random(),
-          exercise_id: ex.id, exercise: ex,
-          sets: 3, reps: '10', rest_seconds: 60, notes: '', order: s.exercises.length
-        }]
-      }
-    }))
-    setOpenPickerFor(null)
+    setOpenPicker(false)
     setSearch('')
   }
 
-  function updateEx(sKey, exKey, field, value) {
-    setSessions(prev => prev.map(s => {
-      if (sessionKey(s) !== sKey) return s
-      return { ...s, exercises: s.exercises.map(e => (e.id ?? e._tempId) === exKey ? { ...e, [field]: value } : e) }
-    }))
+  function updateEx(key, field, value) {
+    setExercises(prev => prev.map(e => exKey(e) === key ? { ...e, [field]: value } : e))
   }
 
-  function removeEx(sKey, exKey) {
-    setSessions(prev => prev.map(s => {
-      if (sessionKey(s) !== sKey) return s
-      return { ...s, exercises: s.exercises.filter(e => (e.id ?? e._tempId) !== exKey) }
-    }))
+  function removeEx(key) {
+    setExercises(prev => prev.filter(e => exKey(e) !== key))
   }
 
-  function handleDragEnd(event, sKey) {
+  function handleDragEnd(event) {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    setSessions(prev => prev.map(s => {
-      if (sessionKey(s) !== sKey) return s
-      const ids = s.exercises.map(e => e.id ?? e._tempId)
-      const reordered = arrayMove(s.exercises, ids.indexOf(active.id), ids.indexOf(over.id))
-        .map((e, i) => ({ ...e, order: i }))
-      return { ...s, exercises: reordered }
-    }))
+    const ids = exercises.map(exKey)
+    const reordered = arrayMove(exercises, ids.indexOf(active.id), ids.indexOf(over.id))
+      .map((e, i) => ({ ...e, order: i }))
+    setExercises(reordered)
   }
 
   async function handleSave() {
@@ -122,21 +91,19 @@ export default function ProgramBuilder() {
       await supabase.from('program_sessions').delete().eq('program_id', programId)
     }
 
-    for (const session of sessions) {
-      const { data: newSess } = await supabase.from('program_sessions')
-        .insert({ program_id: programId, week: session.week, day: session.day, name: session.name })
-        .select().single()
+    const { data: sess } = await supabase.from('program_sessions')
+      .insert({ program_id: programId, week: 1, day: 1, name })
+      .select().single()
 
-      if (session.exercises.length > 0) {
-        await supabase.from('session_exercises').insert(
-          session.exercises.map((e, i) => ({
-            session_id: newSess.id,
-            exercise_id: e.exercise_id,
-            sets: e.sets, reps: e.reps,
-            rest_seconds: e.rest_seconds, notes: e.notes, order: i
-          }))
-        )
-      }
+    if (exercises.length > 0 && sess) {
+      await supabase.from('session_exercises').insert(
+        exercises.map((e, i) => ({
+          session_id: sess.id,
+          exercise_id: e.exercise_id,
+          sets: e.sets, reps: e.reps,
+          rest_seconds: e.rest_seconds, notes: e.notes, order: i
+        }))
+      )
     }
 
     navigate('/coach/programs')
@@ -148,6 +115,7 @@ export default function ProgramBuilder() {
     const matchSport = !sportType || sportType === 'other' || (e.sport_type ?? 'strength') === sportType
     return matchName && matchSport
   })
+
   const selectedType = SESSION_TYPES[sportType]
 
   // Step 1: category picker
@@ -177,108 +145,85 @@ export default function ProgramBuilder() {
 
   // Step 2: form
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-2xl">
       <div className="flex items-center gap-3 mb-6">
         {!isEdit && (
           <button onClick={() => setStep(1)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">←</button>
         )}
         <h1 className="text-2xl font-bold">{isEdit ? 'Éditer' : 'Nouvelle'} séance</h1>
         {selectedType && (
-          <span className="ml-2 text-sm font-medium px-3 py-1 rounded-full"
+          <span className="text-sm font-medium px-3 py-1 rounded-full"
             style={{ backgroundColor: selectedType.bg, color: selectedType.color }}>
             {selectedType.emoji} {selectedType.label}
           </span>
         )}
       </div>
 
-      <div className="space-y-3 mb-8">
+      <div className="space-y-3 mb-6">
         <input placeholder="Nom de la séance *" value={name}
           onChange={e => setName(e.target.value)}
-          className="w-full border rounded-lg px-4 py-2.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          className="w-full border rounded-lg px-4 py-2.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-green-400" />
         <textarea placeholder="Description (optionnel)" rows={2} value={description}
           onChange={e => setDescription(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-400" />
       </div>
 
-      <div className="space-y-5">
-        {sessions.map(session => {
-          const sKey = sessionKey(session)
-          return (
-            <div key={sKey} className="bg-white rounded-xl border shadow-sm p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <input value={session.name} onChange={e => updateSession(sKey, 'name', e.target.value)}
-                  className="flex-1 font-semibold text-base border-b border-transparent hover:border-gray-300 focus:border-blue-500 outline-none" />
-                <div className="flex items-center gap-1.5 text-sm text-gray-500 shrink-0">
-                  <span>Sem.</span>
-                  <input type="number" min={1} value={session.week}
-                    onChange={e => updateSession(sKey, 'week', +e.target.value)}
-                    className="w-12 border rounded px-1 py-0.5 text-center focus:outline-none" />
-                  <span>Jour</span>
-                  <input type="number" min={1} max={7} value={session.day}
-                    onChange={e => updateSession(sKey, 'day', +e.target.value)}
-                    className="w-12 border rounded px-1 py-0.5 text-center focus:outline-none" />
-                </div>
-                <button onClick={() => removeSession(sKey)}
-                  className="text-red-400 hover:text-red-600 text-sm ml-1">✕</button>
-              </div>
+      {/* Exercise list */}
+      <div className="space-y-3 mb-4">
+        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={exercises.map(exKey)} strategy={verticalListSortingStrategy}>
+            {exercises.map(ex => (
+              <SortableExercise
+                key={exKey(ex)}
+                id={exKey(ex)}
+                exercise={ex}
+                onUpdate={(f, v) => updateEx(exKey(ex), f, v)}
+                onRemove={() => removeEx(exKey(ex))}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
 
-              <DndContext collisionDetection={closestCenter} onDragEnd={e => handleDragEnd(e, sKey)}>
-                <SortableContext
-                  items={session.exercises.map(e => e.id ?? e._tempId)}
-                  strategy={verticalListSortingStrategy}>
-                  {session.exercises.map(ex => (
-                    <SortableExercise
-                      key={ex.id ?? ex._tempId}
-                      id={ex.id ?? ex._tempId}
-                      exercise={ex}
-                      onUpdate={(f, v) => updateEx(sKey, ex.id ?? ex._tempId, f, v)}
-                      onRemove={() => removeEx(sKey, ex.id ?? ex._tempId)}
-                    />
-                  ))}
-                </SortableContext>
-              </DndContext>
+        {exercises.length === 0 && (
+          <div className="rounded-xl border-2 border-dashed border-gray-200 p-6 text-center text-sm text-gray-400">
+            Aucun exercice — cliquez sur "+ Ajouter un exercice" ci-dessous
+          </div>
+        )}
+      </div>
 
-              <div className="mt-3">
-                {openPickerFor === sKey ? (
-                  <div className="border rounded-lg p-3 bg-gray-50 mt-2">
-                    <input placeholder="Rechercher un exercice..." value={search}
-                      onChange={e => setSearch(e.target.value)} autoFocus
-                      className="w-full border rounded px-3 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                    <div className="max-h-44 overflow-y-auto space-y-0.5">
-                      {filteredLib.map(ex => (
-                        <button key={ex.id} onClick={() => addExToSession(sKey, ex)}
-                          className="w-full text-left text-sm px-3 py-2 rounded hover:bg-white hover:shadow-sm">
-                          <span className="font-medium">{ex.name}</span>
-                          {(ex.muscle_groups ?? []).length > 0 && (
-                            <span className="text-gray-400 ml-2 text-xs">{ex.muscle_groups.join(', ')}</span>
-                          )}
-                        </button>
-                      ))}
-                      {filteredLib.length === 0 && <p className="text-gray-400 text-sm px-3 py-2">Aucun résultat.</p>}
-                    </div>
-                    <button onClick={() => setOpenPickerFor(null)}
-                      className="text-xs text-gray-400 hover:text-gray-600 mt-2">Fermer</button>
-                  </div>
-                ) : (
-                  <button onClick={() => { setOpenPickerFor(sKey); setSearch('') }}
-                    className="text-sm text-blue-600 hover:text-blue-800 mt-1">
-                    + Ajouter un exercice
-                  </button>
+      {/* Exercise picker */}
+      {openPicker ? (
+        <div className="border rounded-xl p-3 bg-gray-50 mb-4">
+          <input placeholder="Rechercher un exercice..." value={search}
+            onChange={e => setSearch(e.target.value)} autoFocus
+            className="w-full border rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-green-400" />
+          <div className="max-h-52 overflow-y-auto space-y-0.5">
+            {filteredLib.map(ex => (
+              <button key={ex.id} onClick={() => addExercise(ex)}
+                className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-white hover:shadow-sm transition-all">
+                <span className="font-medium">{ex.name}</span>
+                {(ex.muscle_groups ?? []).length > 0 && (
+                  <span className="text-gray-400 ml-2 text-xs">{ex.muscle_groups.join(', ')}</span>
                 )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
+              </button>
+            ))}
+            {filteredLib.length === 0 && (
+              <p className="text-gray-400 text-sm px-3 py-2">Aucun exercice trouvé pour cette catégorie.</p>
+            )}
+          </div>
+          <button onClick={() => setOpenPicker(false)}
+            className="text-xs text-gray-400 hover:text-gray-600 mt-2">Fermer</button>
+        </div>
+      ) : (
+        <button onClick={() => { setOpenPicker(true); setSearch('') }}
+          className="w-full border border-dashed rounded-xl px-4 py-3 text-sm text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors mb-6">
+          + Ajouter un exercice
+        </button>
+      )}
 
-      <button onClick={addSession}
-        className="mt-4 w-full border border-dashed rounded-lg px-4 py-3 text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors">
-        + Ajouter une séance
-      </button>
-
-      <div className="flex gap-3 mt-8">
+      <div className="flex gap-3">
         <button onClick={handleSave} disabled={saving || !name.trim()}
-          className="text-white px-6 py-2.5 rounded-lg font-medium disabled:opacity-50"
+          className="font-bold px-6 py-2.5 rounded-lg disabled:opacity-50"
           style={{ backgroundColor: '#39E229', color: '#000' }}>
           {saving ? 'Sauvegarde...' : 'Sauvegarder la séance'}
         </button>
