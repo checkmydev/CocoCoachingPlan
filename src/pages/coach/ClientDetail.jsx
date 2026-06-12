@@ -42,7 +42,22 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
   const [modalDay, setModalDay] = useState(null)
   const [editSession, setEditSession] = useState(null)
 
+  // Copy mode
+  const [copyMode, setCopyMode] = useState(false)
+  const [selectedDays, setSelectedDays] = useState(new Set())
+  const [copyTargetClient, setCopyTargetClient] = useState('')
+  const [clients, setClients] = useState([])
+  const [copying, setCopying] = useState(false)
+  const [copyDone, setCopyDone] = useState(null)
+
   const weeks = useMemo(() => getMonthWeeks(currentMonth), [currentMonth])
+
+  // Load clients list when entering copy mode
+  useEffect(() => {
+    if (!copyMode || clients.length > 0) return
+    supabase.from('profiles').select('id, name, email').eq('role', 'client').neq('id', clientId)
+      .then(({ data }) => setClients(data ?? []))
+  }, [copyMode, clientId, clients.length])
 
   const fetchPlanned = useCallback(async () => {
     const from = format(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -99,10 +114,60 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
     return total > 0 ? fmtDuration(total) : '—'
   }
 
-  function openAdd(day) { setModalDay(day); setEditSession(null) }
-  function openEdit(s, e) { e.stopPropagation(); setEditSession(s); setModalDay(null) }
+  function openAdd(day) {
+    if (copyMode) {
+      const key = format(day, 'yyyy-MM-dd')
+      const hasSessions = planned.some(s => s.session_date === key)
+      if (!hasSessions) return
+      setSelectedDays(prev => {
+        const next = new Set(prev)
+        next.has(key) ? next.delete(key) : next.add(key)
+        return next
+      })
+      return
+    }
+    setModalDay(day); setEditSession(null)
+  }
+  function openEdit(s, e) {
+    if (copyMode) return
+    e.stopPropagation(); setEditSession(s); setModalDay(null)
+  }
   function closeModal() { setModalDay(null); setEditSession(null) }
   async function afterSave() { await fetchPlanned(); closeModal() }
+
+  function cancelCopy() {
+    setCopyMode(false)
+    setSelectedDays(new Set())
+    setCopyTargetClient('')
+    setCopyDone(null)
+  }
+
+  async function executeCopy() {
+    if (!copyTargetClient || selectedDays.size === 0) return
+    setCopying(true)
+    const dates = [...selectedDays]
+    const { data: sessions } = await supabase
+      .from('planned_sessions')
+      .select('*')
+      .eq('client_id', clientId)
+      .in('session_date', dates)
+    const inserts = (sessions ?? []).map(s => ({
+      client_id: copyTargetClient,
+      coach_id: coachId,
+      session_date: s.session_date,
+      session_type: s.session_type,
+      title: s.title,
+      description: s.description,
+      duration_minutes: s.duration_minutes,
+      session_data: s.session_data,
+      completed: false,
+    }))
+    if (inserts.length > 0) await supabase.from('planned_sessions').insert(inserts)
+    setCopying(false)
+    setCopyDone(inserts.length)
+    setSelectedDays(new Set())
+    setCopyTargetClient('')
+  }
 
   const TABS = [
     { key: 'planned', label: 'Prévu' },
@@ -126,19 +191,68 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
       </div>
 
       {/* Month navigation */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 gap-2">
         <button onClick={() => setCurrentMonth(m => subMonths(m, 1))}
-          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-600">
+          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-600 shrink-0">
           ←
         </button>
-        <span className="font-semibold capitalize">
+        <span className="font-semibold capitalize flex-1 text-center">
           {format(currentMonth, 'MMMM yyyy', { locale: fr })}
         </span>
         <button onClick={() => setCurrentMonth(m => addMonths(m, 1))}
-          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-600">
+          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-600 shrink-0">
           →
         </button>
+        {!copyMode ? (
+          <button onClick={() => { setCopyMode(true); setCopyDone(null) }}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border-2 border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors shrink-0">
+            📋 Copier des jours
+          </button>
+        ) : (
+          <button onClick={cancelCopy}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border-2 border-gray-300 text-gray-500 hover:bg-gray-100 transition-colors shrink-0">
+            Annuler
+          </button>
+        )}
       </div>
+
+      {/* Copy mode banner */}
+      {copyMode && (
+        <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+          {copyDone !== null ? (
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-green-700">
+                ✅ {copyDone} séance{copyDone > 1 ? 's' : ''} copiée{copyDone > 1 ? 's' : ''} !
+              </span>
+              <button onClick={cancelCopy} className="text-xs text-gray-500 hover:text-gray-700 underline">Terminer</button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm text-blue-700 font-medium shrink-0">
+                {selectedDays.size === 0
+                  ? '👆 Cliquez sur des jours avec des séances'
+                  : `${selectedDays.size} jour${selectedDays.size > 1 ? 's' : ''} sélectionné${selectedDays.size > 1 ? 's' : ''}`}
+              </span>
+              {selectedDays.size > 0 && (
+                <>
+                  <select value={copyTargetClient} onChange={e => setCopyTargetClient(e.target.value)}
+                    className="flex-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white">
+                    <option value="">Choisir un client...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>{c.name || c.email}</option>
+                    ))}
+                  </select>
+                  <button onClick={executeCopy} disabled={copying || !copyTargetClient}
+                    className="text-sm font-bold px-4 py-1.5 rounded-lg disabled:opacity-50 shrink-0"
+                    style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+                    {copying ? '⏳' : 'Copier →'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Calendar grid */}
       <div className="overflow-x-auto">
@@ -162,7 +276,10 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
                     <td key={day.toISOString()}
                       onClick={() => inMonth && openAdd(day)}
                       className={`align-top p-1 border-r last:border-r-0 min-h-[64px] transition-colors ${
-                        inMonth ? 'cursor-pointer hover:bg-green-50' : 'bg-gray-50 cursor-default'
+                        !inMonth ? 'bg-gray-50 cursor-default'
+                        : copyMode && selectedDays.has(format(day, 'yyyy-MM-dd')) ? 'bg-blue-100 cursor-pointer ring-2 ring-inset ring-blue-400'
+                        : copyMode ? 'cursor-pointer hover:bg-blue-50'
+                        : 'cursor-pointer hover:bg-green-50'
                       }`}
                       style={{ minHeight: 64 }}>
                       <div className="flex flex-col gap-0.5 min-h-[56px]">
