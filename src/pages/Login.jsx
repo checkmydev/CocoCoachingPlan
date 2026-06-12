@@ -18,7 +18,9 @@ export default function Login() {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+      // Only auto-redirect on explicit SIGNED_IN (magic link / invite click), not on INITIAL_SESSION
+      // to allow deliberate logout + re-login as a different account
+      if (session && event === 'SIGNED_IN') {
         redirectByRole(session.user.id)
       }
     })

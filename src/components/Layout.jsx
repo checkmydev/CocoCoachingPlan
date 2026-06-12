@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 const NAV = [
   { to: '/coach/dashboard', label: 'Tableau de bord' },
@@ -10,6 +11,7 @@ const NAV = [
 
 export default function Layout({ children }) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -19,7 +21,10 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen flex">
       <aside className="w-56 bg-gray-900 text-white flex flex-col shrink-0">
-        <div className="p-4 text-lg font-bold border-b border-gray-700">CoachApp</div>
+        <div className="p-4 border-b border-gray-700">
+          <p className="text-lg font-bold">CoachApp</p>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{profile?.email}</p>
+        </div>
         <nav className="flex-1 p-4 space-y-1">
           {NAV.map(({ to, label }) => (
             <NavLink key={to} to={to}
@@ -31,9 +36,13 @@ export default function Layout({ children }) {
             </NavLink>
           ))}
         </nav>
-        <button onClick={handleLogout} className="m-4 text-sm text-gray-400 hover:text-white text-left">
-          Déconnexion
-        </button>
+        <div className="p-4 border-t border-gray-700">
+          <button
+            onClick={handleLogout}
+            className="w-full bg-gray-700 hover:bg-red-600 text-white text-sm py-2 px-3 rounded-lg transition-colors text-left">
+            ↩ Se déconnecter
+          </button>
+        </div>
       </aside>
       <main className="flex-1 bg-gray-50 overflow-y-auto">{children}</main>
     </div>

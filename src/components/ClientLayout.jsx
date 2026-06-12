@@ -1,10 +1,12 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import { useStats } from '../contexts/StatsContext'
 import { getLevel, getLevelProgress } from '../lib/gamification'
 
 export default function ClientLayout({ children }) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const { stats } = useStats()
 
   const level = stats ? getLevel(stats.total_xp) : null
@@ -50,8 +52,12 @@ export default function ClientLayout({ children }) {
                 )}
               </>
             )}
-            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-gray-900 ml-1">
-              ↩
+            <button
+              onClick={handleLogout}
+              title={`Déconnecter ${profile?.email ?? ''}`}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors ml-1">
+              <span className="hidden sm:inline max-w-[120px] truncate">{profile?.email}</span>
+              <span>↩</span>
             </button>
           </div>
         </div>
