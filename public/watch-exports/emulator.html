@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MooV'Lab · Watch Emulator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;padding:32px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#fff;user-select:none}
+
+.dpicker{display:flex;gap:5px;margin-bottom:36px}
+.dp{padding:7px 15px;border-radius:100px;border:1px solid #2a2a2a;background:transparent;color:#6b7280;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .15s}
+.dp.on{background:#1a1a1a;color:#fff;border-color:#444}
+
+/* ─── Garmin Forerunner 255 ─── */
+.g-wrap{position:relative;width:224px}
+.g-body{
+  width:192px;height:218px;border-radius:48px;
+  background:linear-gradient(150deg,#242424 0%,#111 100%);
+  border:5px solid #2e2e2e;
+  box-shadow:0 0 0 1px #3a3a3a,inset 0 1px 0 rgba(255,255,255,.04),0 32px 80px rgba(0,0,0,.95);
+  position:relative;margin:0 auto
+}
+.g-screen{
+  position:absolute;top:9px;left:9px;right:9px;bottom:9px;
+  border-radius:36px;background:#000;overflow:hidden;
+  display:flex;flex-direction:column
+}
+/* inner animation wrapper fills the screen */
+.g-screen>div:first-child,.w-screen>div:first-child{
+  display:flex;flex-direction:column;flex:1;min-height:0
+}
+.wb{
+  position:absolute;cursor:pointer;
+  background:linear-gradient(160deg,#292929,#191919);
+  border:1px solid #383838;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .08s;font-size:.55rem;color:#4b5563;font-weight:800
+}
+.wb:hover{border-color:#555;color:#9ca3af}
+.wb:active,.wb.press{transform:scale(.88);background:#333;border-color:#555}
+.wb-r1{right:-13px;top:42px;width:11px;height:30px}
+.wb-r2{right:-13px;top:84px;width:11px;height:24px}
+.wb-r3{right:-13px;top:118px;width:11px;height:24px}
+.wb-l1{left:-13px;top:60px;width:11px;height:24px}
+.wb-l2{left:-13px;top:94px;width:11px;height:24px}
+.wb-tip{
+  position:absolute;white-space:nowrap;pointer-events:none;
+  background:#1c1c1c;color:#9ca3af;font-size:.62rem;padding:3px 7px;border-radius:4px;
+  opacity:0;transition:opacity .15s;z-index:20;font-weight:600
+}
+.wb:hover .wb-tip{opacity:1}
+.tip-r{right:16px;top:50%;transform:translateY(-50%)}
+.tip-l{left:16px;top:50%;transform:translateY(-50%)}
+
+.g-head{padding:10px 10px 2px;font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 10px;gap:1px}
+.g-num{font-size:2.5rem;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em;line-height:1;color:#fff}
+.g-sub{font-size:.53rem;color:#5a6270;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.g-target{font-size:.72rem;font-weight:700;margin-top:5px;font-variant-numeric:tabular-nums}
+.g-foot{padding:5px 10px 9px}
+.g-zrow{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.g-zbadge{font-size:.58rem;font-weight:800;padding:1px 5px;border-radius:3px}
+.g-bar{height:3px;background:#141414;border-radius:2px;overflow:hidden}
+.g-barfill{height:100%;border-radius:2px;transition:width .5s,background .5s}
+.pdots{display:flex;justify-content:center;gap:5px;margin-top:11px}
+.pdot{width:5px;height:5px;border-radius:50%;transition:background .2s}
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.ov-txt{font-size:.68rem;font-weight:800;color:#fff;background:rgba(0,0,0,.72);padding:3px 9px;border-radius:4px;letter-spacing:.1em}
+
+/* ─── swipe animations ─── */
+@keyframes slideInFromRight{from{opacity:0;transform:translateX(26px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideInFromLeft {from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:translateX(0)}}
+.swipe-from-r{animation:slideInFromRight .17s cubic-bezier(.25,.46,.45,.94)}
+.swipe-from-l{animation:slideInFromLeft  .17s cubic-bezier(.25,.46,.45,.94)}
+/* swipeable screens get grab cursor and a subtle drag-hint ring */
+.swipeable{cursor:grab;touch-action:pan-y}
+.swipeable:active{cursor:grabbing}
+/* drag ghost indicator */
+.drag-hint{
+  position:absolute;inset:0;pointer-events:none;z-index:30;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 10px;opacity:0;transition:opacity .1s
+}
+.drag-hint.show{opacity:1}
+.drag-arrow{font-size:.9rem;color:rgba(255,255,255,.35)}
+
+/* ─── Wahoo ELEMNT Bolt ─── */
+.w-wrap{position:relative}
+.w-body{
+  width:218px;height:148px;border-radius:10px 10px 18px 18px;
+  background:linear-gradient(150deg,#222,#111);border:4px solid #2a2a2a;
+  box-shadow:0 0 0 1px #3a3a3a,0 24px 64px rgba(0,0,0,.9);
+  position:relative;overflow:visible
+}
+.w-screen{position:absolute;inset:7px;border-radius:5px 5px 13px 13px;background:#000;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.w-topbtn{
+  position:absolute;top:-10px;left:50%;transform:translateX(-50%);
+  width:58px;height:11px;border-radius:3px 3px 0 0;
+  cursor:pointer;background:linear-gradient(to bottom,#2a2a2a,#1a1a1a);
+  border:1px solid #363636;border-bottom:none;
+  font-size:.42rem;color:#4b5563;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+  display:flex;align-items:center;justify-content:center;transition:all .1s
+}
+.w-topbtn:active{background:#333;transform:translateX(-50%) scale(.95)}
+.w-lbtn,.w-rbtn{
+  position:absolute;top:50%;
+  width:11px;height:30px;cursor:pointer;
+  background:linear-gradient(to bottom,#2a2a2a,#1a1a1a);
+  border:1px solid #363636;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.5rem;color:#4b5563;font-weight:800;transition:all .1s
+}
+.w-lbtn{left:-10px;transform:translateY(-50%);border-radius:4px 0 0 4px;border-right:none}
+.w-rbtn{right:-10px;transform:translateY(-50%);border-radius:0 4px 4px 0;border-left:none}
+.w-lbtn:active,.w-rbtn:active{background:#333}
+
+/* ─── Zwift ─── */
+.z-monitor{
+  width:380px;background:#161616;border-radius:10px 10px 0 0;
+  border:3px solid #222;box-shadow:0 0 0 1px #2a2a2a,0 24px 80px rgba(0,0,100,.25);overflow:hidden
+}
+.z-screen{background:#0b0b1e;display:flex;flex-direction:column;height:230px;position:relative}
+.z-stand{width:56px;height:18px;background:#161616;border:3px solid #222;border-top:none;margin:0 auto;border-radius:0 0 4px 4px}
+.z-base{width:110px;height:7px;background:#222;border-radius:3px;margin:0 auto}
+
+.speed-row{display:flex;align-items:center;gap:7px;margin-top:28px;font-size:.7rem;color:#4b5563}
+.sp{padding:5px 12px;border-radius:100px;border:1px solid #2a2a2a;background:transparent;color:#6b7280;font-size:.72rem;font-weight:700;cursor:pointer;transition:all .12s}
+.sp.on{background:#1a1a1a;color:#fff;border-color:#444}
+.kb-row{display:flex;gap:10px;margin-top:10px;font-size:.63rem;color:#333;align-items:center;flex-wrap:wrap;justify-content:center}
+.kb{display:inline-block;background:#131313;border:1px solid #2a2a2a;border-bottom:2px solid #333;border-radius:3px;padding:1px 5px;font-family:monospace;color:#555;font-size:.63rem}
+</style>
+</head>
+<body>
+
+<div style="text-align:center;margin-bottom:14px">
+  <div style="font-size:1.1rem;font-weight:800;letter-spacing:-.01em">MooV'Lab · Watch Emulator</div>
+  <div style="font-size:.7rem;color:#3b3b3b;margin-top:2px">user3</div>
+</div>
+
+<div class="dpicker">
+  <button class="dp on" onclick="setDev('garmin')">⌚ Garmin Forerunner</button>
+  <button class="dp"    onclick="setDev('wahoo')">📟 Wahoo ELEMNT</button>
+  <button class="dp"    onclick="setDev('zwift')">🖥 Zwift</button>
+</div>
+
+<div id="dc"></div>
+
+<div class="speed-row">
+  <span>Vitesse :</span>
+  <button class="sp on" onclick="setSpd(1,this)">×1</button>
+  <button class="sp" onclick="setSpd(10,this)">×10</button>
+  <button class="sp" onclick="setSpd(30,this)">×30</button>
+  <button class="sp" onclick="setSpd(120,this)">×120</button>
+</div>
+<div class="kb-row">
+  <span class="kb">Espace</span><span>Start/Stop</span>·
+  <span class="kb">L</span><span>Lap</span>·
+  <span class="kb">↑↓</span><span>Pages</span>·
+  <span class="kb">R</span><span>Reset</span>
+</div>
+
+<script>
+const ZC={Z1:'#60A5FA',Z2:'#34D399',Z3:'#FBBF24',Z4:'#F87171',Z5:'#A78BFA'}
+
+function expand(r,ch){const o=[];for(let i=0;i<r;i++)for(const c of ch)o.push({...c,dn:`${c.n} ${i+1}/${r}`});return o}
+
+const RUN=[
+  {n:'Échauffement Z2',dn:'Échauffement Z2',dt:'time',d:420,z:'Z2',sl:9.1,sh:10.5},
+  ...expand(8,[
+    {n:'100m @ VMA',   dt:'dist',d:100,z:'Z5',sl:13.3,sh:14.7},
+    {n:'Récup 100m',   dt:'dist',d:100,z:'Z1',sl:6.5, sh:9.0 }
+  ]),
+  {n:'Retour au calme',dn:'Retour au calme',dt:'time',d:300,z:'Z1',sl:7.0,sh:9.0}
+]
+const BIKE=[
+  {n:'Échauffement',  dn:'Échauffement',  dt:'time',d:600,z:'Z2',pw:120,pp:60},
+  ...expand(4,[
+    {n:'Zone 4',      dt:'time',d:600,z:'Z4',pw:180,pp:90},
+    {n:'Récupération',dt:'time',d:300,z:'Z2',pw:110,pp:55}
+  ]),
+  {n:'Retour au calme',dn:'Retour au calme',dt:'time',d:600,z:'Z1',pw:90,pp:45}
+]
+
+function estDur(s){if(s.dt==='time')return s.d;const a=((s.sl||3)+(s.sh||4))/2/3.6;return Math.round(s.d/a)}
+
+let dev='garmin',flat=[],durs=[],tot=0,elapsed=0,si=0,se=0,playing=false,spd=1,tmr=null,pg=0,swDir=0
+
+function initSim(steps){
+  clearInterval(tmr);tmr=null
+  flat=[...steps];durs=flat.map(estDur);tot=durs.reduce((a,b)=>a+b,0)
+  elapsed=si=se=0;playing=false;pg=0;rd()
+}
+
+function togglePlay(){
+  playing=!playing
+  if(playing)tmr=setInterval(tick,100);else clearInterval(tmr)
+  rd()
+}
+
+function tick(){
+  const d=0.1*spd;elapsed+=d;se+=d
+  while(si<flat.length-1&&se>=durs[si]){se-=durs[si];si++}
+  if(elapsed>=tot){elapsed=tot;si=flat.length-1;se=durs[si];playing=false;clearInterval(tmr)}
+  rd()
+}
+
+function lapNext(){if(!playing&&elapsed===0){togglePlay();return}if(si<flat.length-1){se=durs[si];tick()}}
+function reset(){clearInterval(tmr);playing=false;elapsed=si=se=0;pg=0;rd()}
+function setSpd(s,b){spd=s;document.querySelectorAll('.sp').forEach(x=>x.classList.remove('on'));b.classList.add('on')}
+function cpg(d){swDir=d;pg=(pg+d+3)%3;rd();swDir=0}
+function press(el){el.classList.add('press');setTimeout(()=>el.classList.remove('press'),110)}
+
+function t2s(sec){sec=Math.max(0,Math.floor(sec));return`${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`}
+function pace(kmh){if(!kmh)return'—';const s=3600/kmh;return`${Math.floor(s/60)}'${String(Math.round(s%60)).padStart(2,'0')}''/km`}
+function bpmSim(z){return({Z1:118,Z2:138,Z3:152,Z4:162,Z5:172}[z]||130)+(playing?Math.round(Math.sin(Date.now()/570)*2):0)}
+
+// ─── Garmin pages ────────────────────────────────────────────────────────────
+function gp0(s,rem,sp,zc){
+  const isDist=s.dt==='dist'
+  const big=isDist?`${Math.max(0,Math.ceil(s.d*(1-sp)))}m`:t2s(rem)
+  const lbl=isDist?'Distance rest.':'Temps restant'
+  const tgt=s.sl?`${pace(s.sh)} – ${pace(s.sl)}`:(s.pw?`${s.pw} W · ${s.pp}% FTP`:'')
+  const nxt=flat[si+1]
+  return`<div class="g-head" style="color:${zc}">${s.dn||s.n}</div>
+<div class="g-center">
+  <div class="g-num">${big}</div>
+  <div class="g-sub">${lbl}</div>
+  ${tgt?`<div class="g-target" style="color:${zc}">${tgt}</div>`:''}
+</div>
+<div class="g-foot">
+  <div class="g-zrow">
+    <span class="g-zbadge" style="background:${zc}1a;color:${zc}">${s.z}</span>
+    ${nxt?`<span style="font-size:.52rem;color:#3b3b3b">▶ ${(nxt.dn||nxt.n).slice(0,12)}</span>`:''}
+  </div>
+  <div class="g-bar"><div class="g-barfill" style="width:${(sp*100).toFixed(1)}%;background:${zc}"></div></div>
+</div>`
+}
+
+function gp1(){
+  const tp=Math.min(1,elapsed/tot),done=elapsed>=tot
+  return`<div class="g-head" style="color:#6b7280">PROGRESSION</div>
+<div class="g-center">
+  <div class="g-num" style="font-size:2rem">${t2s(elapsed)}</div>
+  <div class="g-sub">Temps écoulé</div>
+  <div class="g-target" style="color:#4b5563">/ ${t2s(tot)}</div>
+</div>
+<div class="g-foot">
+  <div class="g-zrow">
+    <span style="font-size:.56rem;color:#6b7280">Avancement</span>
+    <span style="font-size:.6rem;color:${done?'#39E229':'#fff'};font-weight:800">${done?'✓ TERMINÉ':Math.round(tp*100)+'%'}</span>
+  </div>
+  <div class="g-bar"><div class="g-barfill" style="width:${(tp*100).toFixed(1)}%;background:#39E229"></div></div>
+</div>`
+}
+
+function gp2(s,sp,zc){
+  return`<div class="g-head" style="color:#6b7280">FRÉQ. CARDIAQUE</div>
+<div class="g-center">
+  <div class="g-num" style="color:${zc}">${bpmSim(s.z)}</div>
+  <div class="g-sub">bpm · sim.</div>
+</div>
+<div class="g-foot">
+  <div class="g-zrow">
+    <span class="g-zbadge" style="background:${zc}1a;color:${zc}">Zone cible ${s.z}</span>
+    <span style="font-size:.52rem;color:#3b3b3b">Étape ${si+1}/${flat.length}</span>
+  </div>
+  <div class="g-bar"><div class="g-barfill" style="width:${(sp*100).toFixed(1)}%;background:${zc}"></div></div>
+</div>`
+}
+
+// ─── render ───────────────────────────────────────────────────────────────────
+function rd(){
+  if(!flat.length)return
+  const s=flat[si],dur=durs[si]||1,rem=Math.max(0,dur-se)
+  const sp=Math.min(1,se/dur),zc=ZC[s.z]||'#9ca3af'
+  const dc=document.getElementById('dc');if(!dc)return
+  const done=elapsed>=tot
+
+  if(dev==='garmin'){
+    let scr=done
+      ?`<div class="ov" style="flex-direction:column;gap:8px"><div style="font-size:1.8rem">✓</div><div style="font-size:.72rem;font-weight:800;color:#39E229;letter-spacing:.1em">TERMINÉ</div><div style="font-size:.6rem;color:#6b7280">${t2s(tot)}</div></div>`
+      :(pg===0?gp0(s,rem,sp,zc):pg===1?gp1():gp2(s,sp,zc))
+    if(!done&&!playing&&elapsed>0) scr+=`<div class="ov"><div class="ov-txt">PAUSE</div></div>`
+
+    dc.innerHTML=`<div class="g-wrap">
+  <div class="g-body">
+    <div class="wb wb-r1" onclick="press(this);togglePlay()">
+      ${playing?'⏸':'▶'}<div class="wb-tip tip-r">${playing?'Pause':'Start'}</div>
+    </div>
+    <div class="wb wb-r2" onclick="press(this);lapNext()">
+      LAP<div class="wb-tip tip-r">Étape suiv.</div>
+    </div>
+    <div class="wb wb-r3" onclick="press(this);reset()">
+      ←<div class="wb-tip tip-r">Reset</div>
+    </div>
+    <div class="wb wb-l1" onclick="press(this);cpg(-1)">▲<div class="wb-tip tip-l">Page préc.</div></div>
+    <div class="wb wb-l2" onclick="press(this);cpg(1)">▼<div class="wb-tip tip-l">Page suiv.</div></div>
+    <div class="g-screen swipeable" data-swipe="pg">
+      <div class="${swDir>0?'swipe-from-r':swDir<0?'swipe-from-l':''}" style="display:flex;flex-direction:column;flex:1;width:100%;overflow:hidden">${scr}</div>
+      <div class="drag-hint" id="dh"><span class="drag-arrow">◀</span><span class="drag-arrow">▶</span></div>
+    </div>
+  </div>
+  <div class="pdots">${[0,1,2].map(i=>`<div class="pdot" style="background:${i===pg?'#fff':'#2a2a2a'}"></div>`).join('')}</div>
+</div>`
+  }
+
+  else if(dev==='wahoo'){
+    const noise=playing?Math.round(Math.sin(Date.now()/680)*4):0
+    const pw=Math.max(0,(s.pw||0)+noise)
+    const pct=Math.min(100,pw/300*100),tp=Math.min(1,elapsed/tot)
+    let ws
+    if(pg===0){ws=`
+      <div style="background:#0d0d0d;padding:4px 8px;border-bottom:1px solid #151515">
+        <div style="font-size:.56rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:${zc}">${s.dn||s.n}</div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px 10px">
+        <div style="font-size:3rem;font-weight:900;font-variant-numeric:tabular-nums;color:#fff;line-height:1">${pw}</div>
+        <div style="font-size:.58rem;color:#4b5563;margin-top:2px">W · cible ${s.pw||0}W</div>
+      </div>
+      <div style="padding:0 10px 7px">
+        <div style="height:5px;background:#0d0d0d;border-radius:3px;overflow:hidden;margin-bottom:4px">
+          <div style="height:100%;width:${pct.toFixed(1)}%;background:${zc};border-radius:3px;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.56rem">
+          <span style="color:#4b5563">${s.pp||0}% FTP · <span style="color:${zc}">${s.z}</span></span>
+          <span style="color:#fff;font-weight:800;font-variant-numeric:tabular-nums">${t2s(rem)}</span>
+        </div>
+      </div>`
+    }else if(pg===1){ws=`
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px">
+        <div style="font-size:.56rem;color:#4b5563;font-weight:700;text-transform:uppercase;margin-bottom:4px">Progression</div>
+        <div style="font-size:2.2rem;font-weight:900;font-variant-numeric:tabular-nums;color:#fff">${t2s(elapsed)}</div>
+        <div style="height:4px;background:#0d0d0d;border-radius:2px;overflow:hidden;margin:8px 0">
+          <div style="height:100%;width:${(tp*100).toFixed(1)}%;background:#39E229;border-radius:2px"></div>
+        </div>
+        <div style="font-size:.56rem;color:#4b5563">${Math.round(tp*100)}% · Total ${t2s(tot)}</div>
+      </div>`
+    }else{ws=`
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 10px">
+        <div style="font-size:2.6rem;font-weight:900;color:${zc};font-variant-numeric:tabular-nums">${bpmSim(s.z)}</div>
+        <div style="font-size:.58rem;color:#4b5563;margin-top:2px">bpm · sim. · <span style="color:${zc}">${s.z}</span></div>
+      </div>`
+    }
+    if(!playing&&elapsed>0) ws+=`<div class="ov"><div class="ov-txt">PAUSE</div></div>`
+
+    dc.innerHTML=`<div class="w-wrap">
+  <div class="w-body">
+    <div class="w-topbtn" onclick="this.style.opacity='.6';setTimeout(()=>this.style.opacity='',100);lapNext()">LAP</div>
+    <div class="w-lbtn" onclick="this.style.opacity='.5';setTimeout(()=>this.style.opacity='',100);cpg(-1)">◀</div>
+    <div class="w-rbtn" onclick="this.style.opacity='.5';setTimeout(()=>this.style.opacity='',100);cpg(1)">▶</div>
+    <div class="w-screen swipeable" data-swipe="pg">
+      <div class="${swDir>0?'swipe-from-r':swDir<0?'swipe-from-l':''}" style="display:contents">${ws}</div>
+      <div class="drag-hint" id="dh"><span class="drag-arrow">◀</span><span class="drag-arrow">▶</span></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:18px">
+    <button onclick="togglePlay()" style="padding:7px 20px;border-radius:100px;border:none;background:${playing?'#1f1f1f':'#39E229'};color:${playing?'#fff':'#000'};font-size:.82rem;font-weight:800;cursor:pointer;min-width:100px">${playing?'⏸ Pause':'▶ Démarrer'}</button>
+    <button onclick="reset()" style="padding:7px 14px;border-radius:100px;border:1px solid #2a2a2a;background:transparent;color:#4b5563;font-size:.82rem;cursor:pointer">↺</button>
+  </div>
+  <div class="pdots" style="margin-top:10px">${[0,1,2].map(i=>`<div class="pdot" style="background:${i===pg?'#fff':'#2a2a2a'}"></div>`).join('')}</div>
+</div>`
+  }
+
+  else{
+    // Zwift
+    const noise=playing?Math.round(Math.sin(Date.now()/680)*4):0
+    const pw=Math.max(0,(s.pw||0)+noise),sp2=Math.min(1,se/dur),tp=Math.min(1,elapsed/tot)
+    const nxt=flat[si+1]
+    dc.innerHTML=`<div>
+  <div class="z-monitor">
+    <div style="background:#0f0f1a;border-bottom:1px solid #1a1a2e;padding:5px 14px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#3b82f6">⚡ ZWIFT WORKOUT</span>
+      <span style="font-size:.58rem;color:#2d2d5e">Zone 4 FTP 4×10min</span>
+    </div>
+    <div class="z-screen">
+      <div style="padding:8px 16px 4px;display:flex;justify-content:space-between">
+        <div>
+          <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:${zc}">${s.dn||s.n}</div>
+          <div style="font-size:.56rem;color:#2d2d5e">Étape ${si+1}/${flat.length}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:.56rem;color:#2d2d5e">Séance</div>
+          <div style="font-size:.62rem;color:#fff;font-weight:700;font-variant-numeric:tabular-nums">${t2s(elapsed)} / ${t2s(tot)}</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="font-size:3.8rem;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;line-height:1">${pw}</div>
+        <div style="font-size:.65rem;color:#4b5563;margin-top:2px">Watts · <span style="color:${zc}">${s.pp||0}% FTP · ${s.z}</span></div>
+      </div>
+      <div style="padding:0 16px">
+        <div style="display:flex;justify-content:space-between;font-size:.58rem;color:#2d2d5e;margin-bottom:3px">
+          <span>Intervalle</span>
+          <span style="color:#fff;font-variant-numeric:tabular-nums">${t2s(rem)}</span>
+        </div>
+        <div style="height:7px;background:#111125;border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${(sp2*100).toFixed(1)}%;background:${zc};border-radius:4px;transition:width .3s"></div>
+        </div>
+      </div>
+      <div style="display:flex;height:20px;margin:6px 16px;border-radius:3px;overflow:hidden;background:#0a0a18">
+        ${flat.map((f,i)=>{const p=(durs[i]/tot*100).toFixed(2);const c=ZC[f.z]||'#333';const dn=i<si,cur=i===si;return`<div style="width:${p}%;background:${c};opacity:${dn?.25:cur?1:.5};${cur?'outline:1px solid rgba(255,255,255,.4);outline-offset:-1px':''}"></div>`}).join('')}
+      </div>
+      <div style="padding:0 16px 8px;font-size:.58rem;color:#2d2d5e">
+        ${nxt?`Prochain : <span style="color:#6b7280">${nxt.dn||nxt.n}</span> · ${nxt.pw||'—'}W`:'<span style="color:#39E229">Séance terminée ! 🎉</span>'}
+      </div>
+      ${!playing&&elapsed>0?`<div class="ov"><div class="ov-txt" style="font-size:.8rem">PAUSE</div></div>`:''}
+    </div>
+  </div>
+  <div class="z-stand"></div>
+  <div class="z-base"></div>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:18px">
+    <button onclick="togglePlay()" style="padding:8px 22px;border-radius:100px;border:none;background:${playing?'#1a1a1a':'#39E229'};color:${playing?'#fff':'#000'};font-size:.85rem;font-weight:800;cursor:pointer;min-width:110px">${playing?'⏸ Pause':'▶ Démarrer'}</button>
+    <button onclick="lapNext()" style="padding:8px 14px;border-radius:100px;border:1px solid #2a2a2a;background:transparent;color:#6b7280;font-size:.85rem;cursor:pointer" title="Étape suivante">⏭</button>
+    <button onclick="reset()" style="padding:8px 14px;border-radius:100px;border:1px solid #2a2a2a;background:transparent;color:#4b5563;font-size:.85rem;cursor:pointer">↺</button>
+  </div>
+</div>`
+  }
+}
+
+function setDev(d){
+  dev=d
+  document.querySelectorAll('.dp').forEach((b,i)=>b.classList.toggle('on',['garmin','wahoo','zwift'][i]===d))
+  initSim(d==='garmin'?RUN:BIKE)
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'){e.preventDefault();togglePlay()}
+  else if(e.key.toLowerCase()==='l')lapNext()
+  else if(e.key.toLowerCase()==='r')reset()
+  else if(e.key==='ArrowUp'||e.key==='ArrowLeft')cpg(-1)
+  else if(e.key==='ArrowDown'||e.key==='ArrowRight')cpg(1)
+})
+
+// ─── swipe / drag detection (delegated on #dc — survives re-renders) ─────────
+;(()=>{
+  const dc=document.getElementById('dc')
+  let tx=null,ty=null,mx=null,dragging=false,hinting=false
+
+  function getScreen(target){return target.closest('[data-swipe]')}
+
+  function showHint(scr,show){
+    const h=scr?.querySelector('#dh')
+    if(h) h.classList.toggle('show',show)
+  }
+
+  // ── touch ──
+  dc.addEventListener('touchstart',e=>{
+    const scr=getScreen(e.target); if(!scr)return
+    tx=e.touches[0].clientX; ty=e.touches[0].clientY
+    showHint(scr,true)
+  },{passive:true})
+
+  dc.addEventListener('touchmove',e=>{
+    if(tx===null)return
+    const dx=e.touches[0].clientX-tx, dy=e.touches[0].clientY-ty
+    // if mostly horizontal, prevent scroll
+    if(Math.abs(dx)>Math.abs(dy)) e.preventDefault()
+  },{passive:false})
+
+  dc.addEventListener('touchend',e=>{
+    if(tx===null)return
+    const dx=e.changedTouches[0].clientX-tx
+    const dy=e.changedTouches[0].clientY-ty
+    const scr=getScreen(e.target)
+    showHint(scr,false)
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>28){
+      dx<0?cpg(1):cpg(-1)  // swipe left → next page, swipe right → prev page
+    }
+    tx=ty=null
+  },{passive:true})
+
+  dc.addEventListener('touchcancel',()=>{tx=ty=null},{passive:true})
+
+  // ── mouse drag ──
+  dc.addEventListener('mousedown',e=>{
+    const scr=getScreen(e.target); if(!scr)return
+    mx=e.clientX; dragging=true; hinting=false
+    e.preventDefault()
+  })
+
+  document.addEventListener('mousemove',e=>{
+    if(!dragging||mx===null)return
+    const dx=Math.abs(e.clientX-mx)
+    if(dx>8&&!hinting){
+      hinting=true
+      const scr=document.querySelector('[data-swipe]')
+      showHint(scr,true)
+    }
+  })
+
+  document.addEventListener('mouseup',e=>{
+    if(!dragging||mx===null)return
+    const dx=e.clientX-mx
+    const scr=document.querySelector('[data-swipe]')
+    showHint(scr,false)
+    if(Math.abs(dx)>28) dx<0?cpg(1):cpg(-1)
+    dragging=false; mx=null; hinting=false
+  })
+})()
+
+initSim(RUN)
+</script>
+</body>
+</html>
