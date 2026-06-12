@@ -45,8 +45,8 @@ export default function ClientLayout({ children }) {
     )
   }
 
-  // Onboarding gate — show if no completed profile
-  if (!clientProfile?.completed_at) {
+  // Onboarding gate — only for clients with incomplete profile
+  if (profile?.role === 'client' && !clientProfile?.completed_at) {
     return (
       <Onboarding
         initialData={clientProfile ?? {}}

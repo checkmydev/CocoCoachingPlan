@@ -30,7 +30,7 @@ export default function Login() {
     const { data: profile } = await supabase
       .from('profiles').select('role').eq('id', userId).single()
     navigate(
-      profile?.role === 'coach' ? '/coach/dashboard' : '/client/programs',
+      profile?.role === 'coach' ? '/coach/dashboard' : '/client/calendar',
       { replace: true }
     )
   }
