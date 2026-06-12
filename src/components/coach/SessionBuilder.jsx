@@ -641,6 +641,8 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
   })
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false)
+  const [savedToLib, setSavedToLib] = useState(false)
 
   function selectType(key) {
     setSessionType(key)
@@ -654,10 +656,11 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
     setSaving(true)
     const description = buildDescription(sessionType, sessionData)
     const duration_minutes = calcDuration(sessionType, sessionData)
+    const sessionTitle = title || SESSION_TYPES[sessionType]?.label
     const payload = {
       session_date: sessionDate,
       session_type: sessionType,
-      title: title || SESSION_TYPES[sessionType]?.label,
+      title: sessionTitle,
       description,
       duration_minutes,
       session_data: sessionData,
@@ -670,6 +673,35 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
     } else {
       await supabase.from('planned_sessions').insert(payload)
     }
+
+    // Also save to programs library
+    if (saveAsTemplate && !isEdit) {
+      const { data: prog } = await supabase.from('programs')
+        .insert({ name: sessionTitle, description, coach_id: coachId, sport_type: sessionType })
+        .select().single()
+      if (prog) {
+        const { data: sess } = await supabase.from('program_sessions')
+          .insert({ program_id: prog.id, week: 1, day: 1, name: sessionTitle })
+          .select().single()
+        // Save gym exercises if present
+        const gymExercises = sessionData?.exercises ?? []
+        if (sess && gymExercises.length > 0) {
+          await supabase.from('session_exercises').insert(
+            gymExercises.map((e, i) => ({
+              session_id: sess.id,
+              exercise_id: e.exercise_id,
+              sets: e.sets ?? 3,
+              reps: String(e.reps ?? 10),
+              rest_seconds: e.rest_sec ?? 60,
+              notes: e.notes ?? '',
+              order: i,
+            }))
+          )
+        }
+        setSavedToLib(true)
+      }
+    }
+
     setSaving(false)
     onSave()
   }
@@ -818,22 +850,33 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
 
         {/* Footer */}
         {step === 3 && (
-          <div className="flex gap-2 px-5 py-4 border-t">
-            {isEdit && (
-              <button type="button" onClick={handleDelete} disabled={deleting}
-                className="px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50">
-                {deleting ? '...' : '🗑 Supprimer'}
-              </button>
+          <div className="border-t">
+            {!isEdit && (
+              <label className="flex items-center gap-2 px-5 py-2.5 border-b bg-gray-50 cursor-pointer hover:bg-green-50 transition-colors">
+                <input type="checkbox" checked={saveAsTemplate} onChange={e => setSaveAsTemplate(e.target.checked)}
+                  className="w-4 h-4 accent-green-500 rounded" />
+                <span className="text-xs font-medium text-gray-600">
+                  💾 Aussi sauvegarder comme modèle dans ma bibliothèque de séances
+                </span>
+              </label>
             )}
-            <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 hover:bg-gray-50">
-              Annuler
-            </button>
-            <button type="button" onClick={handleSave} disabled={saving || !sessionType}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60 transition-colors"
-              style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
-              {saving ? '...' : isEdit ? 'Enregistrer' : '+ Planifier'}
-            </button>
+            <div className="flex gap-2 px-5 py-4">
+              {isEdit && (
+                <button type="button" onClick={handleDelete} disabled={deleting}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50">
+                  {deleting ? '...' : '🗑 Supprimer'}
+                </button>
+              )}
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 hover:bg-gray-50">
+                Annuler
+              </button>
+              <button type="button" onClick={handleSave} disabled={saving || !sessionType}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60 transition-colors"
+                style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+                {saving ? '...' : isEdit ? 'Enregistrer' : saveAsTemplate ? '+ Planifier & Sauvegarder' : '+ Planifier'}
+              </button>
+            </div>
           </div>
         )}
       </div>
