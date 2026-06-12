@@ -8,17 +8,12 @@ import {
   VMA_TEMPLATES, calcVmaTemplate, calcPMAZones,
   speedToPaceKm, speedToPace100m
 } from '../../lib/trainingCalculator'
+import { SESSION_TYPES } from '../../lib/sessionTypes'
 
 const MUSCLE_GROUPS = ['Dos', 'Pectoraux', 'Épaules', 'Biceps', 'Triceps', 'Quadriceps', 'Ischio-jambiers', 'Fessiers', 'Mollets', 'Abdominaux', 'Full body']
 const EQUIPMENT = ['Haltères', 'Barre', 'Machine', 'Câble', 'Poids du corps', 'Bandes élastiques', 'Kettlebell']
 
-const SPORT_TYPES = [
-  { id: 'strength', label: 'Musculation',   icon: '🏋️' },
-  { id: 'running',  label: 'Course à pied', icon: '🏃' },
-  { id: 'cycling',  label: 'Cyclisme',      icon: '🚴' },
-  { id: 'swimming', label: 'Natation',      icon: '🏊' },
-  { id: 'other',    label: 'Autre',         icon: '💪' },
-]
+const EX_SPORT_TYPES = Object.entries(SESSION_TYPES).filter(([k]) => !['day_off', 'moovlab'].includes(k))
 
 const ZONES = ['Z1', 'Z2', 'Z3', 'Z4', 'Z5']
 const ZONE_COLORS = { Z1: '#60A5FA', Z2: '#34D399', Z3: '#FBBF24', Z4: '#F87171', Z5: '#A78BFA' }
@@ -406,6 +401,7 @@ export default function ExerciseForm() {
   const { exercises, createExercise, updateExercise } = useExercises()
   const isEdit = Boolean(id)
 
+  const [step, setStep] = useState(isEdit ? 2 : 1)
   const [form, setForm] = useState(EMPTY)
   const [videoMode, setVideoMode] = useState('url')
   const [uploading, setUploading] = useState(false)
@@ -466,36 +462,51 @@ export default function ExerciseForm() {
   }
 
   const st = form.sport_type
-  const isStrengthLike = st === 'strength' || st === 'swimming' || st === 'other'
+  const isCycleLike = st === 'cycling' || st === 'home_trainer'
+  const isStrengthLike = !isCycleLike && st !== 'running'
+  const selectedTypeCfg = SESSION_TYPES[st]
+
+  // Step 1: category picker
+  if (step === 1) {
+    return (
+      <div className="p-6 max-w-2xl">
+        <button type="button" onClick={() => navigate('/coach/exercises')}
+          className="flex items-center gap-1 text-gray-400 hover:text-gray-600 mb-6 text-sm">
+          ← Retour
+        </button>
+        <h1 className="text-2xl font-bold mb-2">Nouvel exercice</h1>
+        <p className="text-gray-500 mb-6">Choisissez une catégorie</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {EX_SPORT_TYPES.map(([key, { label, color, bg, emoji }]) => (
+            <button key={key} type="button"
+              onClick={() => { setForm(f => ({ ...f, sport_type: key, session_params: null })); setStep(2) }}
+              className="flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all hover:scale-105 active:scale-95"
+              style={{ borderColor: color, backgroundColor: bg }}>
+              <span className="text-3xl">{emoji}</span>
+              <span className="text-sm font-semibold text-center leading-tight" style={{ color }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 max-w-3xl">
       <div className="flex items-center gap-3 mb-6">
-        <button type="button" onClick={() => navigate('/coach/exercises')}
+        <button type="button" onClick={() => isEdit ? navigate('/coach/exercises') : setStep(1)}
           className="text-gray-400 hover:text-gray-700 text-xl leading-none">←</button>
         <h1 className="text-2xl font-bold">{isEdit ? 'Modifier' : 'Nouvel'} exercice</h1>
+        {selectedTypeCfg && (
+          <span className="ml-2 text-sm font-medium px-3 py-1 rounded-full"
+            style={{ backgroundColor: selectedTypeCfg.bg, color: selectedTypeCfg.color }}>
+            {selectedTypeCfg.emoji} {selectedTypeCfg.label}
+          </span>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">{error}</p>}
-
-        {/* Sport type selector */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Type de sport</label>
-          <div className="flex gap-2 flex-wrap">
-            {SPORT_TYPES.map(s => (
-              <button key={s.id} type="button"
-                onClick={() => setForm(f => ({ ...f, sport_type: s.id, session_params: null }))}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border-2 transition-all ${
-                  st === s.id
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}>
-                {s.icon} {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Name */}
         <div>
@@ -521,8 +532,8 @@ export default function ExerciseForm() {
           </div>
         )}
 
-        {/* FTP/PMA reference for cycling */}
-        {st === 'cycling' && (
+        {/* FTP/PMA reference for cycling / home trainer */}
+        {isCycleLike && (
           <div className="flex items-center gap-4 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3">
             <span className="text-sm font-semibold text-purple-700 whitespace-nowrap">FTP / PMA référence</span>
             <input type="number" min={50} max={600} step={5} value={pmaRef}
@@ -542,8 +553,8 @@ export default function ExerciseForm() {
           />
         )}
 
-        {/* Cycling form */}
-        {st === 'cycling' && (
+        {/* Cycling / home trainer form */}
+        {isCycleLike && (
           <CyclingForm
             params={form.session_params}
             onChange={p => setForm(f => ({ ...f, session_params: p }))}

@@ -6,6 +6,9 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useExercises } from '../../hooks/useExercises'
 import SortableExercise from '../../components/SortableExercise'
+import { SESSION_TYPES } from '../../lib/sessionTypes'
+
+const TYPE_OPTIONS = Object.entries(SESSION_TYPES).filter(([k]) => !['day_off', 'moovlab'].includes(k))
 
 export default function ProgramBuilder() {
   const { id } = useParams()
@@ -14,6 +17,8 @@ export default function ProgramBuilder() {
   const { exercises: library } = useExercises()
   const isEdit = Boolean(id)
 
+  const [step, setStep] = useState(isEdit ? 2 : 1)
+  const [sportType, setSportType] = useState('other')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [sessions, setSessions] = useState([])
@@ -30,6 +35,7 @@ export default function ProgramBuilder() {
     if (!prog) return
     setName(prog.name)
     setDescription(prog.description ?? '')
+    setSportType(prog.sport_type ?? 'other')
     const { data: sess } = await supabase
       .from('program_sessions')
       .select('*, session_exercises(*, exercise:exercises(*))')
@@ -109,10 +115,10 @@ export default function ProgramBuilder() {
 
     if (!isEdit) {
       const { data } = await supabase.from('programs')
-        .insert({ name, description, coach_id: profile.id }).select().single()
+        .insert({ name, description, coach_id: profile.id, sport_type: sportType }).select().single()
       programId = data.id
     } else {
-      await supabase.from('programs').update({ name, description }).eq('id', id)
+      await supabase.from('programs').update({ name, description, sport_type: sportType }).eq('id', id)
       await supabase.from('program_sessions').delete().eq('program_id', programId)
     }
 
@@ -138,10 +144,48 @@ export default function ProgramBuilder() {
   }
 
   const filteredLib = library.filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+  const selectedType = SESSION_TYPES[sportType]
 
+  // Step 1: category picker
+  if (step === 1) {
+    return (
+      <div className="p-6 max-w-2xl">
+        <button onClick={() => navigate('/coach/programs')}
+          className="flex items-center gap-1 text-gray-400 hover:text-gray-600 mb-6 text-sm">
+          ← Retour
+        </button>
+        <h1 className="text-2xl font-bold mb-2">Nouvelle séance</h1>
+        <p className="text-gray-500 mb-6">Choisissez une catégorie</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {TYPE_OPTIONS.map(([key, { label, color, bg, emoji }]) => (
+            <button key={key}
+              onClick={() => { setSportType(key); setStep(2) }}
+              className="flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all hover:scale-105 active:scale-95"
+              style={{ borderColor: color, backgroundColor: bg }}>
+              <span className="text-3xl">{emoji}</span>
+              <span className="text-sm font-semibold text-center leading-tight" style={{ color }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // Step 2: form
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Éditer' : 'Nouvelle'} séance</h1>
+      <div className="flex items-center gap-3 mb-6">
+        {!isEdit && (
+          <button onClick={() => setStep(1)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">←</button>
+        )}
+        <h1 className="text-2xl font-bold">{isEdit ? 'Éditer' : 'Nouvelle'} séance</h1>
+        {selectedType && (
+          <span className="ml-2 text-sm font-medium px-3 py-1 rounded-full"
+            style={{ backgroundColor: selectedType.bg, color: selectedType.color }}>
+            {selectedType.emoji} {selectedType.label}
+          </span>
+        )}
+      </div>
 
       <div className="space-y-3 mb-8">
         <input placeholder="Nom de la séance *" value={name}
@@ -230,7 +274,8 @@ export default function ProgramBuilder() {
 
       <div className="flex gap-3 mt-8">
         <button onClick={handleSave} disabled={saving || !name.trim()}
-          className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
+          className="text-white px-6 py-2.5 rounded-lg font-medium disabled:opacity-50"
+          style={{ backgroundColor: '#39E229', color: '#000' }}>
           {saving ? 'Sauvegarde...' : 'Sauvegarder la séance'}
         </button>
         <button onClick={() => navigate('/coach/programs')}
