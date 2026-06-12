@@ -43,7 +43,7 @@ export function usePrograms() {
       .select('*, program_sessions(*, session_exercises(*))')
       .eq('id', id)
       .single()
-    if (!prog) return { error: 'Programme introuvable' }
+    if (!prog) return { error: 'Séance introuvable' }
 
     const { data: newProg, error } = await supabase
       .from('programs')

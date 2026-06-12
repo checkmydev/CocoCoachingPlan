@@ -284,7 +284,7 @@ export default function ClientDetail() {
 
   async function generateCalendarFromProgram(cp) {
     if (!cp.start_date) {
-      alert('Ce programme n\'a pas de date de début. Ajoutez une date de début.')
+      alert('Cette séance n\'a pas de date de début. Ajoutez une date de début.')
       return
     }
     setGenerating(cp.id)
@@ -295,7 +295,7 @@ export default function ClientDetail() {
       .order('week').order('day')
 
     if (!pSessions?.length) {
-      alert('Ce programme ne contient aucune séance.')
+      alert('Cette séance ne contient aucun exercice.')
       setGenerating(null)
       return
     }
@@ -307,7 +307,7 @@ export default function ClientDetail() {
       session_date: format(addDays(startDate, (s.week - 1) * 7 + (s.day - 1)), 'yyyy-MM-dd'),
       session_type: 'other',
       title: s.name,
-      description: `Programme : ${cp.program?.name ?? ''} — Sem. ${s.week} / Jour ${s.day}`,
+      description: `Séance : ${cp.program?.name ?? ''} — Sem. ${s.week} / Jour ${s.day}`,
       duration_minutes: 60,
       completed: false,
       program_session_id: s.id,
@@ -343,7 +343,7 @@ export default function ClientDetail() {
 
   const SECTIONS = [
     { key: 'calendar',  label: '📅 Calendrier' },
-    { key: 'programs',  label: '📋 Programmes' },
+    { key: 'programs',  label: '📋 Séances' },
     { key: 'notes',     label: '📝 Notes' },
     { key: 'history',   label: '📊 Historique' },
   ]
@@ -443,11 +443,11 @@ export default function ClientDetail() {
       {/* Programs section */}
       {section === 'programs' && (
         <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold mb-4">Programmes assignés</h2>
+          <h2 className="font-semibold mb-4">Séances assignées</h2>
           <form onSubmit={assignProgram} className="flex gap-2 mb-4">
             <select value={selectedProgram} onChange={e => setSelectedProgram(e.target.value)}
               className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
-              <option value="">Choisir un programme...</option>
+              <option value="">Choisir une séance...</option>
               {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <button type="submit" disabled={assigning || !selectedProgram}
@@ -481,7 +481,7 @@ export default function ClientDetail() {
                 </div>
               </div>
             ))}
-            {clientPrograms.length === 0 && <p className="text-sm text-gray-400 py-2">Aucun programme assigné.</p>}
+            {clientPrograms.length === 0 && <p className="text-sm text-gray-400 py-2">Aucune séance assignée.</p>}
           </div>
         </div>
       )}

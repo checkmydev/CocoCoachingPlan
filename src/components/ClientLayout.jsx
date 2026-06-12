@@ -11,7 +11,7 @@ const MOOV_GREEN = '#39E229'
 
 const NAV_LINKS = [
   { to: '/client/calendar',    label: 'Calendrier' },
-  { to: '/client/programs',    label: 'Programmes' },
+  { to: '/client/programs',    label: 'Séances' },
   { to: '/client/nutrition',   label: 'Nutrition' },
   { to: '/client/lifestyle',   label: 'Lifestyle' },
   { to: '/client/progression', label: '⚡ Progression' },

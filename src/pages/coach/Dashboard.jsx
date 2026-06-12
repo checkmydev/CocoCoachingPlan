@@ -78,7 +78,7 @@ export default function Dashboard() {
   }
 
   const statCards = [
-    { label: 'Mes programmes', value: stats.programs, to: '/coach/programs', color: 'text-blue-600' },
+    { label: 'Mes séances', value: stats.programs, to: '/coach/programs', color: 'text-blue-600' },
     { label: 'Exercices (biblio)', value: stats.exercises, to: '/coach/exercises', color: 'text-green-600' },
     { label: 'Clients actifs', value: stats.clients, to: '/coach/clients', color: 'text-purple-600' },
     { label: 'Séances cette semaine', value: stats.sessionsThisWeek, to: '/coach/clients', color: 'text-orange-500' },

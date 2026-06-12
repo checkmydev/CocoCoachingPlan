@@ -6,7 +6,7 @@ import Logo from './Logo'
 const NAV = [
   { to: '/coach/dashboard', label: 'Tableau de bord', icon: '📊' },
   { to: '/coach/exercises', label: 'Exercices', icon: '🏋️' },
-  { to: '/coach/programs', label: 'Programmes', icon: '📋' },
+  { to: '/coach/programs', label: 'Séances', icon: '📋' },
   { to: '/coach/clients', label: 'Clients', icon: '👥' },
 ]
 

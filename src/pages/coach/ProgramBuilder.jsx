@@ -141,10 +141,10 @@ export default function ProgramBuilder() {
 
   return (
     <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Éditer' : 'Nouveau'} programme</h1>
+      <h1 className="text-2xl font-bold mb-6">{isEdit ? 'Éditer' : 'Nouvelle'} séance</h1>
 
       <div className="space-y-3 mb-8">
-        <input placeholder="Nom du programme *" value={name}
+        <input placeholder="Nom de la séance *" value={name}
           onChange={e => setName(e.target.value)}
           className="w-full border rounded-lg px-4 py-2.5 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <textarea placeholder="Description (optionnel)" rows={2} value={description}
@@ -231,7 +231,7 @@ export default function ProgramBuilder() {
       <div className="flex gap-3 mt-8">
         <button onClick={handleSave} disabled={saving || !name.trim()}
           className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
-          {saving ? 'Sauvegarde...' : 'Sauvegarder le programme'}
+          {saving ? 'Sauvegarde...' : 'Sauvegarder la séance'}
         </button>
         <button onClick={() => navigate('/coach/programs')}
           className="border px-6 py-2.5 rounded-lg hover:bg-gray-50">

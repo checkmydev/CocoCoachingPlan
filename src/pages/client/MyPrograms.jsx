@@ -21,10 +21,10 @@ export default function MyPrograms() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Mes programmes</h1>
+      <h1 className="text-2xl font-bold mb-6">Mes séances</h1>
       {loading ? <p className="text-gray-400">Chargement...</p>
         : programs.length === 0
-          ? <p className="text-gray-400">Aucun programme assigné pour l'instant.</p>
+          ? <p className="text-gray-400">Aucune séance assignée pour l'instant.</p>
           : (
             <div className="space-y-3">
               {programs.map(cp => (
