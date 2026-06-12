@@ -12,6 +12,7 @@ import ClientDetail from './pages/coach/ClientDetail'
 import MyPrograms from './pages/client/MyPrograms'
 import ProgramDetail from './pages/client/ProgramDetail'
 import ActiveSession from './pages/client/ActiveSession'
+import CheckIn from './pages/client/CheckIn'
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="programs" element={<MyPrograms />} />
           <Route path="programs/:id" element={<ProgramDetail />} />
           <Route path="session/:id" element={<ActiveSession />} />
+          <Route path="checkin" element={<CheckIn />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

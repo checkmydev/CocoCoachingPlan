@@ -17,7 +17,6 @@ export function usePrograms() {
     const { data } = await supabase
       .from('programs')
       .select('*')
-      .eq('coach_id', profile.id)
       .order('created_at', { ascending: false })
     setPrograms(data ?? [])
     setLoading(false)
@@ -28,7 +27,7 @@ export function usePrograms() {
       .from('programs')
       .insert({ ...values, coach_id: profile.id })
       .select().single()
-    if (!error) setPrograms(prev => [data, ...prev])
+    if (!error) await fetchPrograms()
     return { data, error }
   }
 
@@ -38,5 +37,42 @@ export function usePrograms() {
     return { error }
   }
 
-  return { programs, loading, createProgram, deleteProgram, refetch: fetchPrograms }
+  async function duplicateProgram(id) {
+    const { data: prog } = await supabase
+      .from('programs')
+      .select('*, program_sessions(*, session_exercises(*))')
+      .eq('id', id)
+      .single()
+    if (!prog) return { error: 'Programme introuvable' }
+
+    const { data: newProg, error } = await supabase
+      .from('programs')
+      .insert({ name: `${prog.name} (Copie)`, description: prog.description, coach_id: profile.id })
+      .select().single()
+    if (error) return { error }
+
+    for (const session of (prog.program_sessions ?? [])) {
+      const { data: newSession } = await supabase
+        .from('program_sessions')
+        .insert({ program_id: newProg.id, week: session.week, day: session.day, name: session.name })
+        .select().single()
+      if (newSession && session.session_exercises?.length > 0) {
+        await supabase.from('session_exercises').insert(
+          session.session_exercises.map(ex => ({
+            session_id: newSession.id,
+            exercise_id: ex.exercise_id,
+            sets: ex.sets,
+            reps: ex.reps,
+            rest_seconds: ex.rest_seconds,
+            order: ex.order,
+          }))
+        )
+      }
+    }
+
+    await fetchPrograms()
+    return { data: newProg }
+  }
+
+  return { programs, loading, createProgram, deleteProgram, duplicateProgram, refetch: fetchPrograms }
 }

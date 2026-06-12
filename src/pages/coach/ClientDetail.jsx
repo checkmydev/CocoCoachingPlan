@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
@@ -11,18 +11,23 @@ export default function ClientDetail() {
   const [client, setClient] = useState(null)
   const [clientPrograms, setClientPrograms] = useState([])
   const [logs, setLogs] = useState([])
+  const [checkins, setCheckins] = useState([])
   const [selectedProgram, setSelectedProgram] = useState('')
   const [assigning, setAssigning] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [savingNotes, setSavingNotes] = useState(false)
 
   useEffect(() => {
     loadClient()
     loadClientPrograms()
     loadLogs()
+    loadCheckins()
   }, [id])
 
   async function loadClient() {
     const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
     setClient(data)
+    setNotes(data?.coach_notes ?? '')
   }
 
   async function loadClientPrograms() {
@@ -40,8 +45,18 @@ export default function ClientDetail() {
       .select('*, session:program_sessions(name, week, day)')
       .eq('client_id', id)
       .order('logged_at', { ascending: false })
-      .limit(50)
+      .limit(100)
     setLogs(data ?? [])
+  }
+
+  async function loadCheckins() {
+    const { data } = await supabase
+      .from('client_checkins')
+      .select('*')
+      .eq('client_id', id)
+      .order('week_start', { ascending: false })
+      .limit(8)
+    setCheckins(data ?? [])
   }
 
   async function assignProgram(e) {
@@ -64,6 +79,12 @@ export default function ClientDetail() {
     await loadClientPrograms()
   }
 
+  async function saveNotes() {
+    setSavingNotes(true)
+    await supabase.from('profiles').update({ coach_notes: notes }).eq('id', id)
+    setSavingNotes(false)
+  }
+
   const completionByWeek = logs
     .filter(l => l.completed)
     .reduce((acc, log) => {
@@ -75,10 +96,27 @@ export default function ClientDetail() {
     }, [])
     .slice(-8)
 
+  const personalRecords = useMemo(() => {
+    const prs = {}
+    logs.forEach(log => {
+      ;(log.exercises_data ?? []).forEach(ex => {
+        const w = parseFloat(ex.weight)
+        if (!isNaN(w) && w > 0) {
+          if (!prs[ex.exercise_name] || w > prs[ex.exercise_name].weight) {
+            prs[ex.exercise_name] = { weight: w, date: log.logged_at }
+          }
+        }
+      })
+    })
+    return Object.entries(prs).sort((a, b) => b[1].weight - a[1].weight)
+  }, [logs])
+
   if (!client) return <div className="p-6 text-gray-400">Chargement...</div>
 
   const statusColors = { active: 'bg-green-100 text-green-700', paused: 'bg-yellow-100 text-yellow-700', done: 'bg-gray-100 text-gray-500' }
   const statusLabels = { active: 'Actif', paused: 'En pause', done: 'Terminé' }
+  const emojiRecovery = { 1: '😴', 2: '😕', 3: '😐', 4: '😊', 5: '💪' }
+  const emojiStress = { 1: '😌', 2: '🙂', 3: '😐', 4: '😟', 5: '😰' }
 
   return (
     <div className="p-6">
@@ -110,8 +148,7 @@ export default function ClientDetail() {
             {clientPrograms.map(cp => (
               <div key={cp.id} className="flex items-center justify-between py-3">
                 <span className="font-medium text-sm">{cp.program?.name}</span>
-                <select value={cp.status}
-                  onChange={e => updateProgramStatus(cp.id, e.target.value)}
+                <select value={cp.status} onChange={e => updateProgramStatus(cp.id, e.target.value)}
                   className={`text-xs px-2 py-0.5 rounded-full border-0 ${statusColors[cp.status]}`}>
                   {Object.entries(statusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
@@ -122,7 +159,20 @@ export default function ClientDetail() {
         </div>
 
         <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold mb-4">Séances complétées (8 dernières semaines)</h2>
+          <h2 className="font-semibold mb-3">Notes coach</h2>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={5}
+            placeholder="Blessures, objectifs, restrictions alimentaires, historique médical..."
+            className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+          <button onClick={saveNotes} disabled={savingNotes}
+            className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
+            {savingNotes ? 'Sauvegarde...' : 'Sauvegarder'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
+        <div className="bg-white rounded-xl border shadow-sm p-5">
+          <h2 className="font-semibold mb-4">Séances complétées</h2>
           {completionByWeek.length === 0
             ? <p className="text-sm text-gray-400">Aucune séance enregistrée.</p>
             : (
@@ -136,13 +186,62 @@ export default function ClientDetail() {
               </ResponsiveContainer>
             )}
         </div>
+
+        <div className="bg-white rounded-xl border shadow-sm p-5">
+          <h2 className="font-semibold mb-4">Records personnels (PR)</h2>
+          {personalRecords.length === 0
+            ? <p className="text-sm text-gray-400">Aucune donnée de poids encore enregistrée.</p>
+            : (
+              <div className="divide-y max-h-44 overflow-y-auto">
+                {personalRecords.map(([name, { weight, date }]) => (
+                  <div key={name} className="flex items-center justify-between py-2">
+                    <span className="text-sm truncate mr-2">{name}</span>
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-bold text-blue-600">{weight} kg</span>
+                      <p className="text-xs text-gray-400">{format(new Date(date), 'dd/MM/yy')}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
       </div>
+
+      {checkins.length > 0 && (
+        <div className="bg-white rounded-xl border shadow-sm p-5 mb-6">
+          <h2 className="font-semibold mb-4">Check-ins récents</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-gray-400 border-b">
+                  <th className="text-left pb-2 font-medium">Semaine</th>
+                  <th className="text-center pb-2 font-medium">Récup.</th>
+                  <th className="text-center pb-2 font-medium">Sommeil</th>
+                  <th className="text-center pb-2 font-medium">Stress</th>
+                  <th className="text-left pb-2 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {checkins.map(ci => (
+                  <tr key={ci.id}>
+                    <td className="py-2 text-gray-600">{format(new Date(ci.week_start + 'T12:00:00'), 'dd/MM/yyyy')}</td>
+                    <td className="py-2 text-center text-lg">{emojiRecovery[ci.recovery] ?? '—'}</td>
+                    <td className="py-2 text-center text-lg">{emojiRecovery[ci.sleep_quality] ?? '—'}</td>
+                    <td className="py-2 text-center text-lg">{emojiStress[ci.stress] ?? '—'}</td>
+                    <td className="py-2 text-gray-500 text-xs max-w-xs truncate">{ci.notes}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border shadow-sm p-5">
         <h2 className="font-semibold mb-4">Historique des séances</h2>
         {logs.length === 0 ? <p className="text-sm text-gray-400">Aucune séance enregistrée.</p> : (
           <div className="divide-y">
-            {logs.map(log => (
+            {logs.slice(0, 20).map(log => (
               <div key={log.id} className="py-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-sm">{log.session?.name}</p>

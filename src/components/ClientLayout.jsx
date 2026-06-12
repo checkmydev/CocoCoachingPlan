@@ -13,10 +13,16 @@ export default function ClientLayout({ children }) {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b px-4 py-3 flex items-center justify-between">
         <span className="font-bold text-lg">CoachApp</span>
-        <NavLink to="/client/programs"
-          className={({ isActive }) => isActive ? 'text-blue-600 font-medium text-sm' : 'text-gray-600 hover:text-gray-900 text-sm'}>
-          Mes programmes
-        </NavLink>
+        <nav className="flex gap-5">
+          <NavLink to="/client/programs"
+            className={({ isActive }) => isActive ? 'text-blue-600 font-medium text-sm' : 'text-gray-600 hover:text-gray-900 text-sm'}>
+            Mes programmes
+          </NavLink>
+          <NavLink to="/client/checkin"
+            className={({ isActive }) => isActive ? 'text-blue-600 font-medium text-sm' : 'text-gray-600 hover:text-gray-900 text-sm'}>
+            Check-in
+          </NavLink>
+        </nav>
         <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-900">
           Déconnexion
         </button>
