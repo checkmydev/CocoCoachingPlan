@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { startOfWeek, addDays, format, isSameDay } from 'date-fns'
+import { startOfWeek, startOfMonth, endOfMonth, addDays, addMonths, format, isSameDay, isSameMonth, getDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -339,52 +339,59 @@ function SessionModal({ session, onClose }) {
   return createPortal(modal, document.body)
 }
 
+const DAY_HEADERS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
 export default function Calendar() {
   const { profile } = useAuth()
   const { clientProfile } = useClientProfile()
-  const [weekStart, setWeekStart] = useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  )
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()))
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedSession, setSelectedSession] = useState(null)
 
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-  const weekEnd = addDays(weekStart, 6)
+  const monthStart = currentMonth
+  const monthEnd = endOfMonth(currentMonth)
 
   const fetchSessions = useCallback(async () => {
     if (!profile) return
     setLoading(true)
-    const from = format(weekStart, 'yyyy-MM-dd')
-    const to = format(weekEnd, 'yyyy-MM-dd')
     const { data } = await supabase
       .from('planned_sessions')
       .select('*')
       .eq('client_id', profile.id)
-      .gte('session_date', from)
-      .lte('session_date', to)
-      .order('session_date', { ascending: true })
+      .gte('session_date', format(monthStart, 'yyyy-MM-dd'))
+      .lte('session_date', format(monthEnd, 'yyyy-MM-dd'))
+      .order('session_date')
     setSessions(data ?? [])
     setLoading(false)
-  }, [profile, weekStart])
+  }, [profile, currentMonth])
 
-  useEffect(() => {
-    fetchSessions()
-  }, [fetchSessions])
+  useEffect(() => { fetchSessions() }, [fetchSessions])
 
-  function prevWeek() { setWeekStart(d => addDays(d, -7)) }
-  function nextWeek() { setWeekStart(d => addDays(d, 7)) }
-  function goToToday() { setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })) }
+  function prevMonth() { setCurrentMonth(m => startOfMonth(addMonths(m, -1))) }
+  function nextMonth() { setCurrentMonth(m => startOfMonth(addMonths(m, 1))) }
+  function goToToday() { setCurrentMonth(startOfMonth(new Date())) }
 
-  const sessionsByDay = weekDays.map(day => ({
-    day,
-    sessions: sessions.filter(s => {
-      const sDate = new Date(s.session_date + 'T12:00:00')
-      return isSameDay(sDate, day)
-    }),
-  }))
+  // Build grid: weeks starting Monday, padding with nulls
+  const gridDays = (() => {
+    const days = []
+    // first Monday before (or on) monthStart
+    const firstMonday = startOfWeek(monthStart, { weekStartsOn: 1 })
+    // last Sunday on or after monthEnd
+    const lastSunday = addDays(startOfWeek(addDays(monthEnd, 6), { weekStartsOn: 1 }), 6)
+    let d = firstMonday
+    while (d <= lastSunday) {
+      days.push(d)
+      d = addDays(d, 1)
+    }
+    return days
+  })()
+
+  const sessionsOnDay = (day) =>
+    sessions.filter(s => isSameDay(new Date(s.session_date + 'T12:00:00'), day))
 
   const totalSessions = sessions.length
+  const today = new Date()
 
   return (
     <div className="space-y-4">
@@ -392,136 +399,110 @@ export default function Calendar() {
       {clientProfile?.personal_objectives && (
         <div className="rounded-xl p-3 text-sm"
           style={{ backgroundColor: '#f0fdf4', borderLeft: `4px solid ${MOOV_GREEN}` }}>
-          <p className="font-semibold text-gray-800 mb-0.5">🎯 Objectif principal</p>
+          <p className="font-semibold text-gray-800 mb-0.5">🎯 Objectif</p>
           <p className="text-gray-600 line-clamp-2">{clientProfile.personal_objectives}</p>
         </div>
       )}
 
-      {/* Week navigation */}
+      {/* Month navigation */}
       <div className="bg-white rounded-2xl border shadow-sm p-4">
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={prevWeek}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-            ← Semaine précédente
+        <div className="flex items-center justify-between">
+          <button onClick={prevMonth}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900">
+            ←
           </button>
           <div className="text-center">
-            <p className="font-bold text-sm">
-              {format(weekStart, 'd MMM', { locale: fr })} – {format(weekEnd, 'd MMM yyyy', { locale: fr })}
+            <p className="font-bold text-base capitalize">
+              {format(currentMonth, 'MMMM yyyy', { locale: fr })}
             </p>
             {totalSessions > 0 && (
-              <p className="text-xs text-gray-500">{totalSessions} séance{totalSessions > 1 ? 's' : ''} planifiée{totalSessions > 1 ? 's' : ''}</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {totalSessions} séance{totalSessions > 1 ? 's' : ''} planifiée{totalSessions > 1 ? 's' : ''}
+              </p>
             )}
           </div>
-          <button onClick={nextWeek}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-            Semaine suivante →
+          <button onClick={nextMonth}
+            className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900">
+            →
           </button>
         </div>
-        <div className="flex justify-center">
+        <div className="flex justify-center mt-2">
           <button onClick={goToToday}
-            className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+            className="text-xs text-gray-400 hover:text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-100 transition-colors">
             Aujourd'hui
           </button>
         </div>
       </div>
 
-      {/* Loading */}
-      {loading ? (
-        <div className="bg-white rounded-2xl border shadow-sm p-8 text-center">
-          <p className="text-gray-400 text-sm">Chargement des séances...</p>
+      {/* Calendar grid */}
+      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b">
+          {DAY_HEADERS.map(d => (
+            <div key={d} className="py-2 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              {d}
+            </div>
+          ))}
         </div>
-      ) : totalSessions === 0 ? (
-        <div className="bg-white rounded-2xl border shadow-sm p-10 text-center">
-          <p className="text-3xl mb-3">📅</p>
-          <p className="font-semibold text-gray-700">Aucune séance planifiée cette semaine</p>
-          <p className="text-sm text-gray-400 mt-1">Votre coach n'a pas encore planifié de séances pour cette période.</p>
-        </div>
-      ) : (
-        <>
-          {/* Mobile: vertical list */}
-          <div className="block sm:hidden space-y-3">
-            {sessionsByDay.map(({ day, sessions: daySessions }) => {
-              const isToday = isSameDay(day, new Date())
+
+        {loading ? (
+          <div className="p-10 text-center text-gray-400 text-sm">Chargement...</div>
+        ) : (
+          <div className="grid grid-cols-7 divide-x divide-y">
+            {gridDays.map(day => {
+              const daySessions = sessionsOnDay(day)
+              const inMonth = isSameMonth(day, currentMonth)
+              const isToday = isSameDay(day, today)
               return (
-                <div key={day.toISOString()} className="bg-white rounded-2xl border shadow-sm overflow-hidden">
-                  <div className="px-4 py-2.5 border-b"
-                    style={isToday ? { backgroundColor: MOOV_GREEN } : { backgroundColor: '#f9fafb' }}>
-                    <p className="font-semibold text-sm capitalize"
-                      style={isToday ? { color: '#000' } : { color: '#374151' }}>
-                      {format(day, 'EEEE d MMM', { locale: fr })}
-                    </p>
+                <div key={day.toISOString()}
+                  className={`min-h-[80px] p-1 flex flex-col ${inMonth ? 'bg-white' : 'bg-gray-50'}`}>
+                  {/* Day number */}
+                  <div className="flex justify-center mb-1">
+                    <span className={`text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${
+                      isToday
+                        ? 'text-black font-bold'
+                        : inMonth ? 'text-gray-700' : 'text-gray-300'
+                    }`}
+                      style={isToday ? { backgroundColor: MOOV_GREEN } : {}}>
+                      {format(day, 'd')}
+                    </span>
                   </div>
-                  {daySessions.length === 0 ? (
-                    <p className="px-4 py-3 text-sm text-gray-400">Repos</p>
-                  ) : (
-                    <div className="divide-y">
-                      {daySessions.map(s => {
-                        const type = SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other
-                        return (
-                          <button key={s.id} onClick={() => setSelectedSession(s)}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center gap-3">
-                              <span className="text-2xl">{type.emoji}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">{s.title || type.label}</p>
-                                <p className="text-xs text-gray-500">{type.label} · {s.duration_minutes ?? 60} min</p>
-                              </div>
-                              <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                                style={{ backgroundColor: type.bg, color: type.color }}>
-                                {s.duration_minutes ?? 60}min
-                              </span>
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
+                  {/* Session pills */}
+                  <div className="flex flex-col gap-0.5 flex-1">
+                    {daySessions.map(s => {
+                      const type = SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other
+                      return (
+                        <button key={s.id}
+                          onClick={() => setSelectedSession(s)}
+                          className="w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate leading-tight hover:opacity-80 transition-opacity"
+                          style={{ backgroundColor: type.bg, color: type.color }}
+                          title={s.title || type.label}>
+                          <span className="hidden sm:inline">{type.emoji} </span>
+                          <span className="truncate">{s.title || type.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}
           </div>
+        )}
+      </div>
 
-          {/* Desktop: horizontal columns */}
-          <div className="hidden sm:block bg-white rounded-2xl border shadow-sm overflow-hidden">
-            <div className="grid grid-cols-7 divide-x">
-              {sessionsByDay.map(({ day, sessions: daySessions }) => {
-                const isToday = isSameDay(day, new Date())
-                return (
-                  <div key={day.toISOString()} className="flex flex-col min-h-[200px]">
-                    <div className="px-2 py-2 text-center border-b"
-                      style={isToday ? { backgroundColor: MOOV_GREEN } : { backgroundColor: '#f9fafb' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wide"
-                        style={isToday ? { color: '#000' } : { color: '#6b7280' }}>
-                        {format(day, 'EEE', { locale: fr })}
-                      </p>
-                      <p className="text-lg font-bold"
-                        style={isToday ? { color: '#000' } : { color: '#111827' }}>
-                        {format(day, 'd')}
-                      </p>
-                    </div>
-                    <div className="flex-1 p-1.5 space-y-1.5">
-                      {daySessions.map(s => {
-                        const type = SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other
-                        return (
-                          <button key={s.id} onClick={() => setSelectedSession(s)}
-                            className="w-full text-left rounded-lg p-1.5 text-xs transition-all hover:opacity-80"
-                            style={{ backgroundColor: type.bg, color: type.color }}>
-                            <div className="font-bold">{type.emoji} {type.label}</div>
-                            {s.title && <div className="truncate mt-0.5 text-gray-700">{s.title}</div>}
-                            {s.duration_minutes && <div className="mt-0.5">{s.duration_minutes} min</div>}
-                          </button>
-                        )
-                      })}
-                      {daySessions.length === 0 && (
-                        <p className="text-xs text-gray-300 text-center pt-2">—</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </>
+      {/* Legend */}
+      {totalSessions > 0 && (
+        <div className="flex flex-wrap gap-2 px-1">
+          {[...new Set(sessions.map(s => s.session_type))].map(key => {
+            const type = SESSION_TYPES[key] ?? SESSION_TYPES.other
+            return (
+              <span key={key} className="text-xs px-2 py-1 rounded-full font-medium"
+                style={{ backgroundColor: type.bg, color: type.color }}>
+                {type.emoji} {type.label}
+              </span>
+            )
+          })}
+        </div>
       )}
 
       {selectedSession && (
