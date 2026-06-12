@@ -17,7 +17,6 @@ export function useExercises() {
     const { data } = await supabase
       .from('exercises')
       .select('*')
-      .eq('created_by', profile.id)
       .order('name')
     setExercises(data ?? [])
     setLoading(false)
