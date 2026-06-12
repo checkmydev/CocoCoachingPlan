@@ -8,6 +8,7 @@ const NAV = [
   { to: '/coach/exercises', label: 'Exercices', icon: '🏋️' },
   { to: '/coach/programs', label: 'Séances', icon: '📋' },
   { to: '/coach/clients', label: 'Clients', icon: '👥' },
+  { to: '/coach/watch-emulator', label: 'Watch Emulator', icon: '⌚' },
 ]
 
 export default function Layout({ children }) {
@@ -64,7 +65,7 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      <main className="flex-1 bg-gray-50 overflow-y-auto">{children}</main>
+      <main className="flex-1 bg-gray-50 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column' }}>{children}</main>
     </div>
   )
 }

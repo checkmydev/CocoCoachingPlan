@@ -10,6 +10,7 @@ import ProgramList from './pages/coach/ProgramList'
 import ProgramBuilder from './pages/coach/ProgramBuilder'
 import ClientList from './pages/coach/ClientList'
 import ClientDetail from './pages/coach/ClientDetail'
+import WatchEmulator from './pages/coach/WatchEmulator'
 import MyPrograms from './pages/client/MyPrograms'
 import ProgramDetail from './pages/client/ProgramDetail'
 import ActiveSession from './pages/client/ActiveSession'
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="programs/:id" element={<ProgramBuilder />} />
           <Route path="clients" element={<ClientList />} />
           <Route path="clients/:id" element={<ClientDetail />} />
+          <Route path="watch-emulator" element={<WatchEmulator />} />
         </Route>
         <Route path="/client" element={<ClientRoutes />}>
           <Route path="programs" element={<MyPrograms />} />
