@@ -1,19 +1,347 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useParams, Link } from 'react-router-dom'
+import {
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, isSameMonth, isSameDay, isToday,
+  format, addMonths, subMonths
+} from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { usePrograms } from '../../hooks/usePrograms'
 import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 
 const MOOV_GREEN = '#39E229'
+const DAYS_HEADER = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
+function fmtDuration(minutes) {
+  if (!minutes) return ''
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}min`
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`
+}
+
+function getMonthWeeks(month) {
+  const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 })
+  const end = endOfWeek(endOfMonth(month), { weekStartsOn: 1 })
+  const days = eachDayOfInterval({ start, end })
+  const weeks = []
+  for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7))
+  return weeks
+}
+
+// ─── Session form modal ──────────────────────────────────────────────────────
+function SessionModal({ day, session, coachId, clientId, onSave, onDelete, onClose }) {
+  const isEdit = Boolean(session)
+  const [form, setForm] = useState({
+    session_date: session?.session_date ?? format(day ?? new Date(), 'yyyy-MM-dd'),
+    session_type: session?.session_type ?? 'running',
+    title: session?.title ?? '',
+    duration_minutes: session?.duration_minutes ?? 60,
+    objective: session?.objective ?? '',
+    description: session?.description ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  function handleChange(e) {
+    const { name, value } = e.target
+    setForm(p => ({ ...p, [name]: value }))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    if (isEdit) {
+      await supabase.from('planned_sessions').update({
+        ...form,
+        duration_minutes: parseInt(form.duration_minutes) || 60,
+      }).eq('id', session.id)
+    } else {
+      await supabase.from('planned_sessions').insert({
+        ...form,
+        duration_minutes: parseInt(form.duration_minutes) || 60,
+        client_id: clientId,
+        coach_id: coachId,
+        completed: false,
+      })
+    }
+    setSaving(false)
+    onSave()
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    await supabase.from('planned_sessions').delete().eq('id', session.id)
+    setDeleting(false)
+    onDelete()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <h3 className="font-bold text-lg mb-4">{isEdit ? 'Modifier la séance' : 'Planifier une séance'}</h3>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
+              <input type="date" name="session_date" value={form.session_date} onChange={handleChange}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Durée (min)</label>
+              <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange}
+                min={5} max={480}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Type de séance</label>
+            <select name="session_type" value={form.session_type} onChange={handleChange}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
+              {Object.entries(SESSION_TYPES).map(([key, { label, emoji }]) => (
+                <option key={key} value={key}>{emoji} {label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Titre</label>
+            <input type="text" name="title" value={form.title} onChange={handleChange}
+              placeholder="Ex: Sortie longue, Fractionné 10x400m..."
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Objectif de la séance</label>
+            <input type="text" name="objective" value={form.objective} onChange={handleChange}
+              placeholder="Ex: Travailler l'endurance de base..."
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Consignes / Description</label>
+            <textarea name="description" value={form.description} onChange={handleChange} rows={3}
+              placeholder="Instructions détaillées..."
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          {isEdit && (
+            <button onClick={handleDelete} disabled={deleting}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 disabled:opacity-50">
+              {deleting ? '...' : 'Supprimer'}
+            </button>
+          )}
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium border border-gray-200 hover:bg-gray-50">
+            Annuler
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60"
+            style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+            {saving ? '...' : isEdit ? 'Enregistrer' : '+ Planifier'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Coach calendar ──────────────────────────────────────────────────────────
+function CoachCalendar({ clientId, coachId, logs }) {
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
+  const [tab, setTab] = useState('planned') // 'planned' | 'done' | 'both'
+  const [planned, setPlanned] = useState([])
+  const [modalDay, setModalDay] = useState(null)
+  const [editSession, setEditSession] = useState(null)
+
+  const weeks = useMemo(() => getMonthWeeks(currentMonth), [currentMonth])
+
+  const fetchPlanned = useCallback(async () => {
+    const from = format(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const to = format(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const { data } = await supabase
+      .from('planned_sessions')
+      .select('*')
+      .eq('client_id', clientId)
+      .gte('session_date', from)
+      .lte('session_date', to)
+      .order('session_date')
+    setPlanned(data ?? [])
+  }, [clientId, currentMonth])
+
+  useEffect(() => { fetchPlanned() }, [fetchPlanned])
+
+  // Build log sessions (from session_logs) for "Réalisé" view
+  const logEvents = useMemo(() => {
+    return logs.filter(l => {
+      if (!l.logged_at) return false
+      const d = new Date(l.logged_at)
+      return d >= startOfMonth(currentMonth) && d <= endOfMonth(currentMonth)
+    }).map(l => ({
+      id: l.id,
+      session_date: format(new Date(l.logged_at), 'yyyy-MM-dd'),
+      session_type: 'done',
+      title: l.session?.name ?? 'Séance',
+      duration_minutes: null,
+      _isLog: true,
+      completed: l.completed,
+    }))
+  }, [logs, currentMonth])
+
+  function sessionsForDay(day) {
+    const key = format(day, 'yyyy-MM-dd')
+    const items = []
+    if (tab === 'planned' || tab === 'both') {
+      items.push(...planned.filter(s => s.session_date === key))
+    }
+    if (tab === 'done' || tab === 'both') {
+      items.push(...logEvents.filter(s => s.session_date === key))
+    }
+    return items
+  }
+
+  function weekTotal(week) {
+    if (tab === 'done') return null
+    const total = week.reduce((sum, day) => {
+      const key = format(day, 'yyyy-MM-dd')
+      return sum + planned
+        .filter(s => s.session_date === key)
+        .reduce((s2, s) => s2 + (s.duration_minutes ?? 0), 0)
+    }, 0)
+    return total > 0 ? fmtDuration(total) : '—'
+  }
+
+  function openAdd(day) { setModalDay(day); setEditSession(null) }
+  function openEdit(s, e) { e.stopPropagation(); setEditSession(s); setModalDay(null) }
+  function closeModal() { setModalDay(null); setEditSession(null) }
+  async function afterSave() { await fetchPlanned(); closeModal() }
+
+  const TABS = [
+    { key: 'planned', label: 'Prévu' },
+    { key: 'done',    label: 'Réalisé' },
+    { key: 'both',    label: 'Prévu et réalisé' },
+  ]
+
+  return (
+    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+      {/* Tabs */}
+      <div className="flex border-b px-4 gap-1 pt-2">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className="px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors"
+            style={tab === t.key
+              ? { borderBottomColor: MOOV_GREEN, color: '#000' }
+              : { borderBottomColor: 'transparent', color: '#6b7280' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Month navigation */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <button onClick={() => setCurrentMonth(m => subMonths(m, 1))}
+          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-600">
+          ←
+        </button>
+        <span className="font-semibold capitalize">
+          {format(currentMonth, 'MMMM yyyy', { locale: fr })}
+        </span>
+        <button onClick={() => setCurrentMonth(m => addMonths(m, 1))}
+          className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors text-gray-600">
+          →
+        </button>
+      </div>
+
+      {/* Calendar grid */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse min-w-[600px]">
+          <thead>
+            <tr className="bg-gray-50 border-b">
+              {DAYS_HEADER.map(d => (
+                <th key={d} className="px-2 py-2 text-xs font-semibold text-gray-500 text-center">{d}</th>
+              ))}
+              <th className="px-2 py-2 text-xs font-semibold text-gray-500 text-right w-16">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map((week, wi) => (
+              <tr key={wi} className="border-b last:border-b-0">
+                {week.map(day => {
+                  const inMonth = isSameMonth(day, currentMonth)
+                  const today = isToday(day)
+                  const daySessions = sessionsForDay(day)
+                  return (
+                    <td key={day.toISOString()}
+                      onClick={() => inMonth && openAdd(day)}
+                      className={`align-top p-1 border-r last:border-r-0 min-h-[64px] transition-colors ${
+                        inMonth ? 'cursor-pointer hover:bg-green-50' : 'bg-gray-50 cursor-default'
+                      }`}
+                      style={{ minHeight: 64 }}>
+                      <div className="flex flex-col gap-0.5 min-h-[56px]">
+                        <span className={`text-xs font-medium mb-0.5 inline-flex w-5 h-5 items-center justify-center rounded-full ${
+                          today ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'
+                        }`}
+                          style={today ? { backgroundColor: MOOV_GREEN } : {}}>
+                          {format(day, 'd')}
+                        </span>
+                        {daySessions.map(s => {
+                          const type = s._isLog
+                            ? { label: s.title, color: '#22c55e', bg: '#dcfce7', emoji: '✅' }
+                            : (SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other)
+                          return (
+                            <button key={s.id}
+                              onClick={e => !s._isLog && openEdit(s, e)}
+                              className="w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate leading-tight transition-opacity hover:opacity-80"
+                              style={{ backgroundColor: type.bg, color: type.color }}
+                              title={s.title || type.label}>
+                              {type.emoji} {s.title || type.label}
+                              {s.duration_minutes ? <span className="ml-1 opacity-70">{fmtDuration(s.duration_minutes)}</span> : null}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </td>
+                  )
+                })}
+                <td className="px-2 py-1 text-right align-top">
+                  <span className="text-xs text-gray-400 font-medium">{weekTotal(week)}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modals */}
+      {(modalDay || editSession) && (
+        <SessionModal
+          day={modalDay}
+          session={editSession}
+          coachId={coachId}
+          clientId={clientId}
+          onSave={afterSave}
+          onDelete={afterSave}
+          onClose={closeModal}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Main page ───────────────────────────────────────────────────────────────
 export default function ClientDetail() {
   const { id } = useParams()
   const { profile } = useAuth()
   const { programs } = usePrograms()
+
   const [client, setClient] = useState(null)
+  const [clientProfile, setClientProfile] = useState(null)
   const [clientPrograms, setClientPrograms] = useState([])
   const [logs, setLogs] = useState([])
   const [checkins, setCheckins] = useState([])
@@ -21,72 +349,26 @@ export default function ClientDetail() {
   const [assigning, setAssigning] = useState(false)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
-
-  // Planned sessions state
-  const [plannedSessions, setPlannedSessions] = useState([])
-  const [sessionForm, setSessionForm] = useState({
-    session_date: '',
-    session_type: 'running',
-    title: '',
-    description: '',
-    duration_minutes: 60,
-    objective: '',
-  })
-  const [savingSession, setSavingSession] = useState(false)
-  const [sessionError, setSessionError] = useState(null)
+  const [section, setSection] = useState('calendar') // 'calendar' | 'programs' | 'notes' | 'history'
 
   useEffect(() => {
-    loadClient()
-    loadClientPrograms()
-    loadLogs()
-    loadCheckins()
-    loadPlannedSessions()
+    loadAll()
   }, [id])
 
-  async function loadClient() {
-    const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
-    setClient(data)
-    setNotes(data?.coach_notes ?? '')
-  }
-
-  async function loadClientPrograms() {
-    const { data } = await supabase
-      .from('client_programs')
-      .select('*, program:programs(*)')
-      .eq('client_id', id)
-      .order('start_date', { ascending: false })
-    setClientPrograms(data ?? [])
-  }
-
-  async function loadLogs() {
-    const { data } = await supabase
-      .from('session_logs')
-      .select('*, session:program_sessions(name, week, day)')
-      .eq('client_id', id)
-      .order('logged_at', { ascending: false })
-      .limit(100)
-    setLogs(data ?? [])
-  }
-
-  async function loadCheckins() {
-    const { data } = await supabase
-      .from('client_checkins')
-      .select('*')
-      .eq('client_id', id)
-      .order('week_start', { ascending: false })
-      .limit(8)
-    setCheckins(data ?? [])
-  }
-
-  async function loadPlannedSessions() {
-    const today = new Date().toISOString().split('T')[0]
-    const { data } = await supabase
-      .from('planned_sessions')
-      .select('*')
-      .eq('client_id', id)
-      .gte('session_date', today)
-      .order('session_date', { ascending: true })
-    setPlannedSessions(data ?? [])
+  async function loadAll() {
+    const [cRes, cpRes, logsRes, ciRes, extRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', id).single(),
+      supabase.from('client_programs').select('*, program:programs(*)').eq('client_id', id).order('start_date', { ascending: false }),
+      supabase.from('session_logs').select('*, session:program_sessions(name, week, day)').eq('client_id', id).order('logged_at', { ascending: false }).limit(100),
+      supabase.from('client_checkins').select('*').eq('client_id', id).order('week_start', { ascending: false }).limit(8),
+      supabase.from('client_profiles').select('*').eq('client_id', id).maybeSingle(),
+    ])
+    setClient(cRes.data)
+    setNotes(cRes.data?.coach_notes ?? '')
+    setClientPrograms(cpRes.data ?? [])
+    setLogs(logsRes.data ?? [])
+    setCheckins(ciRes.data ?? [])
+    setClientProfile(extRes.data ?? null)
   }
 
   async function assignProgram(e) {
@@ -94,19 +376,19 @@ export default function ClientDetail() {
     if (!selectedProgram) return
     setAssigning(true)
     await supabase.from('client_programs').insert({
-      client_id: id,
-      program_id: selectedProgram,
-      start_date: new Date().toISOString().split('T')[0],
-      status: 'active'
+      client_id: id, program_id: selectedProgram,
+      start_date: new Date().toISOString().split('T')[0], status: 'active'
     })
-    await loadClientPrograms()
+    const { data } = await supabase.from('client_programs').select('*, program:programs(*)').eq('client_id', id).order('start_date', { ascending: false })
+    setClientPrograms(data ?? [])
     setSelectedProgram('')
     setAssigning(false)
   }
 
   async function updateProgramStatus(cpId, status) {
     await supabase.from('client_programs').update({ status }).eq('id', cpId)
-    await loadClientPrograms()
+    const { data } = await supabase.from('client_programs').select('*, program:programs(*)').eq('client_id', id).order('start_date', { ascending: false })
+    setClientPrograms(data ?? [])
   }
 
   async function saveNotes() {
@@ -115,107 +397,131 @@ export default function ClientDetail() {
     setSavingNotes(false)
   }
 
-  function handleSessionFormChange(e) {
-    const { name, value } = e.target
-    setSessionForm(prev => ({ ...prev, [name]: value }))
-  }
+  if (!client) return (
+    <div className="p-6 text-gray-400 flex items-center gap-2">
+      <div className="w-5 h-5 rounded-full border-2 border-gray-300 border-t-transparent animate-spin" />
+      Chargement...
+    </div>
+  )
 
-  async function handlePlanSession(e) {
-    e.preventDefault()
-    setSessionError(null)
-    if (!sessionForm.session_date) {
-      setSessionError('La date de la séance est requise.')
-      return
-    }
-    setSavingSession(true)
-    const { error } = await supabase.from('planned_sessions').insert({
-      client_id: id,
-      coach_id: profile.id,
-      session_date: sessionForm.session_date,
-      session_type: sessionForm.session_type,
-      title: sessionForm.title || null,
-      description: sessionForm.description || null,
-      duration_minutes: parseInt(sessionForm.duration_minutes, 10) || 60,
-      objective: sessionForm.objective || null,
-      completed: false,
-    })
-    setSavingSession(false)
-    if (error) {
-      setSessionError('Erreur lors de la création de la séance.')
-    } else {
-      setSessionForm({
-        session_date: '',
-        session_type: 'running',
-        title: '',
-        description: '',
-        duration_minutes: 60,
-        objective: '',
-      })
-      await loadPlannedSessions()
-    }
-  }
-
-  async function deletePlannedSession(sessionId) {
-    await supabase.from('planned_sessions').delete().eq('id', sessionId)
-    await loadPlannedSessions()
-  }
+  const scaleEmoji = v => v ? ['', '😕', '😐', '😊', '😊', '💪', '💪', '⭐'][v] ?? '' : '—'
+  const statusColors = { active: 'bg-green-100 text-green-700', paused: 'bg-yellow-100 text-yellow-700', done: 'bg-gray-100 text-gray-500' }
+  const statusLabels = { active: 'Actif', paused: 'En pause', done: 'Terminé' }
+  const emojiRecovery = { 1: '😴', 2: '😕', 3: '😐', 4: '😊', 5: '💪' }
+  const emojiStress   = { 1: '😌', 2: '🙂', 3: '😐', 4: '😟', 5: '😰' }
 
   const completionByWeek = logs
     .filter(l => l.completed)
     .reduce((acc, log) => {
       const week = format(new Date(log.logged_at), 'dd/MM')
-      const existing = acc.find(d => d.date === week)
-      if (existing) existing.séances++
-      else acc.push({ date: week, séances: 1 })
+      const ex = acc.find(d => d.date === week)
+      if (ex) ex.séances++; else acc.push({ date: week, séances: 1 })
       return acc
-    }, [])
-    .slice(-8)
+    }, []).slice(-8)
 
-  const personalRecords = useMemo(() => {
-    const prs = {}
-    logs.forEach(log => {
-      ;(log.exercises_data ?? []).forEach(ex => {
-        const w = parseFloat(ex.weight)
-        if (!isNaN(w) && w > 0) {
-          if (!prs[ex.exercise_name] || w > prs[ex.exercise_name].weight) {
-            prs[ex.exercise_name] = { weight: w, date: log.logged_at }
-          }
-        }
-      })
-    })
-    return Object.entries(prs).sort((a, b) => b[1].weight - a[1].weight)
-  }, [logs])
-
-  if (!client) return <div className="p-6 text-gray-400">Chargement...</div>
-
-  const statusColors = { active: 'bg-green-100 text-green-700', paused: 'bg-yellow-100 text-yellow-700', done: 'bg-gray-100 text-gray-500' }
-  const statusLabels = { active: 'Actif', paused: 'En pause', done: 'Terminé' }
-  const emojiRecovery = { 1: '😴', 2: '😕', 3: '😐', 4: '😊', 5: '💪' }
-  const emojiStress = { 1: '😌', 2: '🙂', 3: '😐', 4: '😟', 5: '😰' }
+  const SECTIONS = [
+    { key: 'calendar',  label: '📅 Calendrier' },
+    { key: 'programs',  label: '📋 Programmes' },
+    { key: 'notes',     label: '📝 Notes' },
+    { key: 'history',   label: '📊 Historique' },
+  ]
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-2xl font-bold">
-          {(client.name ?? client.email).charAt(0).toUpperCase()}
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold">{client.name}</h1>
-          <p className="text-gray-500">{client.email}</p>
+    <div className="p-4 lg:p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <Link to="/coach/clients" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Clients</Link>
+        <span className="text-gray-300">/</span>
+        <div className="flex items-center gap-3 flex-1">
+          <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-bold shrink-0">
+            {(client.name ?? client.email).charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold leading-tight">{client.name || '—'}</h1>
+            <p className="text-sm text-gray-500">{client.email}</p>
+          </div>
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
+      {/* Top cards */}
+      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+        {/* Objectifs */}
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Objectifs</h3>
+            <span className="text-lg">🎯</span>
+          </div>
+          {clientProfile?.personal_objectives
+            ? <p className="text-sm text-gray-700 line-clamp-3">{clientProfile.personal_objectives}</p>
+            : <p className="text-sm text-gray-400 italic">Non renseigné</p>}
+        </div>
+
+        {/* Profil */}
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Profil</h3>
+            <span className="text-lg">👤</span>
+          </div>
+          {clientProfile ? (
+            <div className="space-y-1 text-xs text-gray-600">
+              {clientProfile.first_name && <p><span className="text-gray-400">Nom :</span> {clientProfile.first_name} {clientProfile.last_name}</p>}
+              {clientProfile.birth_date  && <p><span className="text-gray-400">DDN :</span> {format(new Date(clientProfile.birth_date + 'T12:00:00'), 'dd/MM/yyyy')}</p>}
+              {clientProfile.height_cm && clientProfile.weight_kg && (
+                <p><span className="text-gray-400">IMC :</span> {(clientProfile.weight_kg / Math.pow(clientProfile.height_cm / 100, 2)).toFixed(1)}</p>
+              )}
+              {clientProfile.phone && <p><span className="text-gray-400">Tél :</span> {clientProfile.phone} {clientProfile.uses_whatsapp ? '(WA)' : ''}</p>}
+            </div>
+          ) : <p className="text-sm text-gray-400 italic">Fiche non complétée</p>}
+        </div>
+
+        {/* Engagement */}
+        <div className="bg-white rounded-xl border shadow-sm p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Engagement</h3>
+            <span className="text-lg">⚡</span>
+          </div>
+          {clientProfile?.scale_motivation ? (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
+              <span className="text-gray-400">Intérêt</span>     <span>{scaleEmoji(clientProfile.scale_interest)} {clientProfile.scale_interest}/7</span>
+              <span className="text-gray-400">Motivation</span>  <span>{scaleEmoji(clientProfile.scale_motivation)} {clientProfile.scale_motivation}/7</span>
+              <span className="text-gray-400">Confiance</span>   <span>{scaleEmoji(clientProfile.scale_confidence)} {clientProfile.scale_confidence}/7</span>
+              <span className="text-gray-400">Dispo</span>       <span>{scaleEmoji(clientProfile.scale_availability)} {clientProfile.scale_availability}/7</span>
+            </div>
+          ) : <p className="text-sm text-gray-400 italic">Non renseigné</p>}
+        </div>
+      </div>
+
+      {/* Section nav */}
+      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+        {SECTIONS.map(s => (
+          <button key={s.key} onClick={() => setSection(s.key)}
+            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
+            style={section === s.key
+              ? { backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.1)', color: '#000' }
+              : { color: '#6b7280' }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Calendar section */}
+      {section === 'calendar' && (
+        <CoachCalendar clientId={id} coachId={profile?.id} logs={logs} />
+      )}
+
+      {/* Programs section */}
+      {section === 'programs' && (
         <div className="bg-white rounded-xl border shadow-sm p-5">
           <h2 className="font-semibold mb-4">Programmes assignés</h2>
           <form onSubmit={assignProgram} className="flex gap-2 mb-4">
             <select value={selectedProgram} onChange={e => setSelectedProgram(e.target.value)}
-              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
               <option value="">Choisir un programme...</option>
               {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <button type="submit" disabled={assigning || !selectedProgram}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm disabled:opacity-50 hover:bg-blue-700">
+              className="text-sm font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+              style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
               Assigner
             </button>
           </form>
@@ -232,201 +538,111 @@ export default function ClientDetail() {
             {clientPrograms.length === 0 && <p className="text-sm text-gray-400 py-2">Aucun programme assigné.</p>}
           </div>
         </div>
+      )}
 
-        <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold mb-3">Notes coach</h2>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={5}
-            placeholder="Blessures, objectifs, restrictions alimentaires, historique médical..."
-            className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-          <button onClick={saveNotes} disabled={savingNotes}
-            className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50">
-            {savingNotes ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
-        </div>
-      </div>
+      {/* Notes section */}
+      {section === 'notes' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border shadow-sm p-5">
+            <h2 className="font-semibold mb-3">Notes coach</h2>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={8}
+              placeholder="Blessures, objectifs, restrictions alimentaires, historique médical..."
+              className="w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" />
+            <button onClick={saveNotes} disabled={savingNotes}
+              className="mt-2 text-sm font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+              style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+              {savingNotes ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+          </div>
 
-      {/* Planned sessions section */}
-      <div className="bg-white rounded-xl border shadow-sm p-5 mb-6">
-        <h2 className="font-semibold mb-4">Planifier une séance</h2>
-        <form onSubmit={handlePlanSession} className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Date *</label>
-              <input type="date" name="session_date" value={sessionForm.session_date} onChange={handleSessionFormChange} required
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ '--tw-ring-color': MOOV_GREEN }} />
+          {/* Medical data from onboarding */}
+          {clientProfile && (clientProfile.medical_history || clientProfile.trauma_history || clientProfile.allergies || clientProfile.exercise_contraindications) && (
+            <div className="bg-white rounded-xl border shadow-sm p-5">
+              <h2 className="font-semibold mb-4 text-red-700">⚕️ Données médicales</h2>
+              <div className="space-y-3 text-sm">
+                {clientProfile.medical_history && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Antécédents médicaux</p><p className="text-gray-700">{clientProfile.medical_history}</p></div>}
+                {clientProfile.trauma_history && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Traumatismes</p><p className="text-gray-700">{clientProfile.trauma_history}</p></div>}
+                {clientProfile.current_treatments && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Traitements</p><p className="text-gray-700">{clientProfile.current_treatments}</p></div>}
+                {clientProfile.allergies && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Allergies</p><p className="text-gray-700">{clientProfile.allergies}</p></div>}
+                {clientProfile.exercise_contraindications && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Contre-indications</p><p className="text-gray-700">{clientProfile.exercise_contraindications}</p></div>}
+                {clientProfile.special_precautions && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Précautions</p><p className="text-gray-700">{clientProfile.special_precautions}</p></div>}
+                {clientProfile.emergency_contact && <div><p className="text-xs text-gray-400 font-medium uppercase mb-1">Contact d'urgence</p><p className="text-gray-700">{clientProfile.emergency_contact}</p></div>}
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Type de séance</label>
-              <select name="session_type" value={sessionForm.session_type} onChange={handleSessionFormChange}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2">
-                {Object.entries(SESSION_TYPES).map(([key, { label, emoji }]) => (
-                  <option key={key} value={key}>{emoji} {label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Titre</label>
-              <input type="text" name="title" value={sessionForm.title} onChange={handleSessionFormChange}
-                placeholder="Ex: Sortie longue, Fractionné..."
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Durée (minutes)</label>
-              <input type="number" name="duration_minutes" value={sessionForm.duration_minutes} onChange={handleSessionFormChange}
-                min={5} max={480}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Objectif</label>
-            <input type="text" name="objective" value={sessionForm.objective} onChange={handleSessionFormChange}
-              placeholder="Ex: Améliorer l'endurance de base, travailler la cadence..."
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Description / Consignes</label>
-            <textarea name="description" value={sessionForm.description} onChange={handleSessionFormChange} rows={3}
-              placeholder="Instructions détaillées pour la séance..."
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none" />
-          </div>
-          {sessionError && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{sessionError}</p>
           )}
-          <button type="submit" disabled={savingSession}
-            className="w-full rounded-lg py-2.5 text-sm font-bold disabled:opacity-60 transition-colors"
-            style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
-            {savingSession ? 'Planification...' : '+ Planifier cette séance'}
-          </button>
-        </form>
+        </div>
+      )}
 
-        {plannedSessions.length > 0 && (
-          <div className="mt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Séances à venir ({plannedSessions.length})</h3>
-            <div className="divide-y">
-              {plannedSessions.map(s => {
-                const type = SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other
-                return (
-                  <div key={s.id} className="flex items-center justify-between py-3 gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-2xl shrink-0">{type.emoji}</span>
-                      <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{s.title || type.label}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
-                            style={{ backgroundColor: type.bg, color: type.color }}>
-                            {type.label}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {format(new Date(s.session_date + 'T12:00:00'), 'dd/MM/yyyy')}
-                          </span>
-                          <span className="text-xs text-gray-400">{s.duration_minutes} min</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => deletePlannedSession(s.id)}
-                      className="shrink-0 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors">
-                      Supprimer
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold mb-4">Séances complétées</h2>
-          {completionByWeek.length === 0
-            ? <p className="text-sm text-gray-400">Aucune séance enregistrée.</p>
-            : (
-              <ResponsiveContainer width="100%" height={180}>
+      {/* History section */}
+      {section === 'history' && (
+        <div className="space-y-4">
+          {completionByWeek.length > 0 && (
+            <div className="bg-white rounded-xl border shadow-sm p-5">
+              <h2 className="font-semibold mb-4">Activité — séances complétées</h2>
+              <ResponsiveContainer width="100%" height={160}>
                 <LineChart data={completionByWeek}>
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="séances" stroke="#2563eb" strokeWidth={2} dot />
+                  <Line type="monotone" dataKey="séances" stroke={MOOV_GREEN} strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
-            )}
-        </div>
+            </div>
+          )}
 
-        <div className="bg-white rounded-xl border shadow-sm p-5">
-          <h2 className="font-semibold mb-4">Records personnels (PR)</h2>
-          {personalRecords.length === 0
-            ? <p className="text-sm text-gray-400">Aucune donnée de poids encore enregistrée.</p>
-            : (
-              <div className="divide-y max-h-44 overflow-y-auto">
-                {personalRecords.map(([name, { weight, date }]) => (
-                  <div key={name} className="flex items-center justify-between py-2">
-                    <span className="text-sm truncate mr-2">{name}</span>
-                    <div className="text-right shrink-0">
-                      <span className="text-sm font-bold text-blue-600">{weight} kg</span>
-                      <p className="text-xs text-gray-400">{format(new Date(date), 'dd/MM/yy')}</p>
+          {checkins.length > 0 && (
+            <div className="bg-white rounded-xl border shadow-sm p-5">
+              <h2 className="font-semibold mb-4">Check-ins récents</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs text-gray-400 border-b">
+                      <th className="text-left pb-2 font-medium">Semaine</th>
+                      <th className="text-center pb-2 font-medium">Récup.</th>
+                      <th className="text-center pb-2 font-medium">Sommeil</th>
+                      <th className="text-center pb-2 font-medium">Stress</th>
+                      <th className="text-left pb-2 font-medium">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {checkins.map(ci => (
+                      <tr key={ci.id}>
+                        <td className="py-2 text-gray-600">{format(new Date(ci.week_start + 'T12:00:00'), 'dd/MM/yyyy')}</td>
+                        <td className="py-2 text-center text-lg">{emojiRecovery[ci.recovery] ?? '—'}</td>
+                        <td className="py-2 text-center text-lg">{emojiRecovery[ci.sleep_quality] ?? '—'}</td>
+                        <td className="py-2 text-center text-lg">{emojiStress[ci.stress] ?? '—'}</td>
+                        <td className="py-2 text-gray-500 text-xs max-w-xs truncate">{ci.notes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border shadow-sm p-5">
+            <h2 className="font-semibold mb-4">Historique des séances</h2>
+            {logs.length === 0 ? <p className="text-sm text-gray-400">Aucune séance enregistrée.</p> : (
+              <div className="divide-y">
+                {logs.slice(0, 30).map(log => (
+                  <div key={log.id} className="py-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{log.session?.name}</p>
+                      <p className="text-xs text-gray-400">Sem. {log.session?.week} / Jour {log.session?.day}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">{format(new Date(log.logged_at), 'dd/MM/yy HH:mm')}</p>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${log.completed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {log.completed ? 'Complétée' : 'Partielle'}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-        </div>
-      </div>
-
-      {checkins.length > 0 && (
-        <div className="bg-white rounded-xl border shadow-sm p-5 mb-6">
-          <h2 className="font-semibold mb-4">Check-ins récents</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-gray-400 border-b">
-                  <th className="text-left pb-2 font-medium">Semaine</th>
-                  <th className="text-center pb-2 font-medium">Récup.</th>
-                  <th className="text-center pb-2 font-medium">Sommeil</th>
-                  <th className="text-center pb-2 font-medium">Stress</th>
-                  <th className="text-left pb-2 font-medium">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {checkins.map(ci => (
-                  <tr key={ci.id}>
-                    <td className="py-2 text-gray-600">{format(new Date(ci.week_start + 'T12:00:00'), 'dd/MM/yyyy')}</td>
-                    <td className="py-2 text-center text-lg">{emojiRecovery[ci.recovery] ?? '—'}</td>
-                    <td className="py-2 text-center text-lg">{emojiRecovery[ci.sleep_quality] ?? '—'}</td>
-                    <td className="py-2 text-center text-lg">{emojiStress[ci.stress] ?? '—'}</td>
-                    <td className="py-2 text-gray-500 text-xs max-w-xs truncate">{ci.notes}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
       )}
-
-      <div className="bg-white rounded-xl border shadow-sm p-5">
-        <h2 className="font-semibold mb-4">Historique des séances</h2>
-        {logs.length === 0 ? <p className="text-sm text-gray-400">Aucune séance enregistrée.</p> : (
-          <div className="divide-y">
-            {logs.slice(0, 20).map(log => (
-              <div key={log.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-sm">{log.session?.name}</p>
-                  <p className="text-xs text-gray-400">Sem. {log.session?.week} / Jour {log.session?.day}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">{format(new Date(log.logged_at), 'dd/MM/yyyy HH:mm')}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${log.completed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {log.completed ? 'Complétée' : 'Partielle'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
