@@ -31,6 +31,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
+        <Route index element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/coach" element={<ProtectedRoute role="coach" />}>
           <Route path="dashboard" element={<Dashboard />} />

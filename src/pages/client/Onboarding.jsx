@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
 import Logo from '../../components/Logo'
 
 const MOOV_GREEN = '#39E229'
@@ -46,6 +48,7 @@ function ScaleInput({ name, label, value, onChange }) {
 }
 
 export default function Onboarding({ onComplete, initialData = {}, save }) {
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -130,7 +133,12 @@ export default function Onboarding({ onComplete, initialData = {}, save }) {
           <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#0f0f0f' }}>
             <Logo size="sm" />
           </div>
-          <span className="font-semibold text-gray-800">Bienvenue — Profil personnel</span>
+          <span className="font-semibold text-gray-800 flex-1">Bienvenue — Profil personnel</span>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); navigate('/login') }}
+            className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors">
+            ↩ Déconnexion
+          </button>
         </div>
         {/* Progress bar */}
         <div className="h-1 bg-gray-100">
