@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { startOfWeek, addDays, format, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../../lib/supabase'
@@ -9,219 +10,324 @@ import VideoPlayer from '../../components/VideoPlayer'
 
 const MOOV_GREEN = '#39E229'
 
-const ZONE_COLORS = { Z1: '#60A5FA', Z2: '#34D399', Z3: '#FBBF24', Z4: '#F87171', Z5: '#A78BFA' }
+const ZONE_COLORS  = { Z1: '#60A5FA', Z2: '#34D399', Z3: '#FBBF24', Z4: '#F87171', Z5: '#A78BFA' }
+const ZONE_LABELS  = { Z1: 'Fondamental', Z2: 'Endurance', Z3: 'Tempo', Z4: 'VMA', Z5: 'Survitesse' }
+const TERRAIN_LABELS = { flat: 'Plat 🛣️', hilly: 'Vallonné ⛰️', trail: 'Trail 🌲', stairs: 'Escaliers 🪜', track: 'Piste 🏟️' }
+const SWIM_LABELS  = { pull_buoy: 'Pull-buoy 🟠', fins: 'Palmes 🦈', snorkel: 'Tuba 🤿', kickboard: 'Planche 🏄' }
+const RECOVERY_LABELS = { rest: 'repos', jog: 'trot', walk: 'marche' }
+
+function ZoneBadge({ zone }) {
+  if (!zone) return null
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-white"
+      style={{ backgroundColor: ZONE_COLORS[zone] ?? '#9ca3af' }}>
+      {zone} <span className="font-normal opacity-80">{ZONE_LABELS[zone]}</span>
+    </span>
+  )
+}
+
+function ExerciseCard({ ex, index }) {
+  const [open, setOpen] = useState(true)
+  const d = ex._detail
+  return (
+    <div className="rounded-xl border overflow-hidden">
+      {/* Header row — always visible */}
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full text-left flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+        <span className="text-lg font-bold text-gray-400 w-6 shrink-0">{index + 1}</span>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-sm truncate">{ex.exercise_name}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {ex.sets} × {ex.reps} rép.
+            {ex.weight_kg ? ` · ${ex.weight_kg} kg` : ''}
+            {ex.rest_sec ? ` · repos ${ex.rest_sec}s` : ''}
+          </p>
+        </div>
+        <span className="text-gray-400 text-xs">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="divide-y">
+          {/* Coach note */}
+          {ex.notes ? (
+            <div className="px-4 py-2.5 bg-blue-50 text-xs text-blue-800 flex gap-2">
+              <span>💬</span><span>{ex.notes}</span>
+            </div>
+          ) : null}
+
+          {/* Muscle groups + equipment */}
+          {(d?.muscle_groups?.length > 0 || d?.equipment?.length > 0) && (
+            <div className="px-4 py-2.5 flex flex-wrap gap-1.5">
+              {(d.muscle_groups ?? []).map(m => (
+                <span key={m} className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">{m}</span>
+              ))}
+              {(d.equipment ?? []).map(e => (
+                <span key={e} className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs">{e}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Description */}
+          {d?.description && (
+            <div className="px-4 py-2.5 text-sm text-gray-700">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Description</p>
+              <p>{d.description}</p>
+            </div>
+          )}
+
+          {/* Instructions */}
+          {d?.instructions && (
+            <div className="px-4 py-2.5 text-sm text-gray-700">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Instructions</p>
+              <p className="whitespace-pre-wrap leading-relaxed">{d.instructions}</p>
+            </div>
+          )}
+
+          {/* Video */}
+          {d?.video_url && (
+            <div className="p-3 bg-black">
+              <VideoPlayer url={d.video_url} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SessionModal({ session, onClose }) {
-  const [enrichedExercises, setEnrichedExercises] = useState([])
+  const [enriched, setEnriched] = useState([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!session) { setEnrichedExercises([]); return }
+    if (!session) { setEnriched([]); return }
     const exList = session.session_data?.exercises ?? []
     const ids = exList.map(e => e.exercise_id).filter(Boolean)
-    if (ids.length === 0) { setEnrichedExercises([]); return }
+    if (ids.length === 0) { setEnriched([]); return }
+    setLoading(true)
     supabase.from('exercises')
       .select('id, name, description, instructions, muscle_groups, equipment, video_url')
       .in('id', ids)
       .then(({ data }) => {
         const map = Object.fromEntries((data ?? []).map(e => [e.id, e]))
-        setEnrichedExercises(exList.map(ex => ({ ...ex, _detail: map[ex.exercise_id] ?? null })))
+        setEnriched(exList.map(ex => ({ ...ex, _detail: map[ex.exercise_id] ?? null })))
+        setLoading(false)
       })
   }, [session?.id])
 
   if (!session) return null
+
   const type = SESSION_TYPES[session.session_type] ?? SESSION_TYPES.other
-  const data = session.session_data ?? {}
+  const sd = session.session_data ?? {}
   const isCardio = ['running', 'trail', 'cycling'].includes(session.session_type)
-  const isGym = ['strength', 'mobility', 'home_trainer', 'other'].includes(session.session_type)
-  const isSwim = session.session_type === 'swimming'
+  const isGym    = ['strength', 'mobility', 'home_trainer', 'other'].includes(session.session_type)
+  const isSwim   = session.session_type === 'swimming'
 
-  const displayExercises = enrichedExercises.length > 0 ? enrichedExercises : (data.exercises ?? [])
-  const hasExercises = isGym && displayExercises.length > 0
-  const hasCardioData = (isCardio || isSwim) && (data.warmup || data.main || data.cooldown)
+  const exercises = enriched.length > 0 ? enriched : (sd.exercises ?? [])
+  const hasExercises  = isGym && exercises.length > 0
+  const hasCardioData = (isCardio || isSwim) && (sd.warmup || sd.main || sd.cooldown)
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+  const modal = (
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4 bg-black/60"
       onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full max-h-[85vh] flex flex-col"
+      <div
+        className="bg-white w-full sm:rounded-2xl sm:max-w-xl shadow-2xl flex flex-col max-h-[92vh] rounded-t-2xl"
         onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b shrink-0">
           <span className="text-3xl">{type.emoji}</span>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-lg leading-tight truncate">{session.title || type.label}</h3>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: type.bg, color: type.color }}>
-              {type.label}
-            </span>
+            <h3 className="font-bold text-lg leading-tight">{session.title || type.label}</h3>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: type.bg, color: type.color }}>
+                {type.label}
+              </span>
+              <span className="text-xs text-gray-400">
+                {format(new Date(session.session_date + 'T12:00:00'), 'EEEE d MMMM', { locale: fr })}
+              </span>
+              {session.duration_minutes && (
+                <span className="text-xs text-gray-400">· {session.duration_minutes} min</span>
+              )}
+            </div>
           </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl shrink-0">✕</button>
         </div>
 
         {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 divide-y">
+        <div className="overflow-y-auto flex-1">
 
-          {/* Meta */}
-          <div className="px-5 py-3 space-y-1.5 text-sm text-gray-700">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400">📅</span>
-              <span>{format(new Date(session.session_date + 'T12:00:00'), 'EEEE d MMMM yyyy', { locale: fr })}</span>
-            </div>
-            {session.duration_minutes && (
-              <div className="flex items-center gap-2">
-                <span className="text-gray-400">⏱</span>
-                <span>{session.duration_minutes} minutes</span>
-              </div>
-            )}
-            {session.objective && (
-              <div className="flex gap-2">
-                <span className="text-gray-400">🎯</span>
-                <span>{session.objective}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Gym exercises */}
-          {hasExercises && (
-            <div className="px-5 py-3 space-y-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Programme · {displayExercises.length} exercice{displayExercises.length > 1 ? 's' : ''}</p>
-              {displayExercises.map((ex, i) => {
-                const detail = ex._detail
-                return (
-                  <div key={ex.exercise_id ?? i} className="rounded-xl border bg-gray-50 overflow-hidden">
-                    {/* Exercise header */}
-                    <div className="px-3 py-2.5 flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-sm">{i + 1}. {ex.exercise_name}</p>
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          {ex.sets} séries × {ex.reps} rép.
-                          {ex.weight_kg ? ` · ${ex.weight_kg} kg` : ''}
-                          {ex.rest_sec ? ` · repos ${ex.rest_sec}s` : ''}
-                        </p>
-                        {detail?.muscle_groups?.length > 0 && (
-                          <p className="text-xs text-gray-400 mt-0.5">{detail.muscle_groups.join(' · ')}</p>
-                        )}
-                      </div>
-                    </div>
-                    {/* Notes from coach */}
-                    {ex.notes ? (
-                      <div className="px-3 pb-2 text-xs text-blue-700 bg-blue-50 border-t border-blue-100 py-1.5">
-                        💬 {ex.notes}
-                      </div>
-                    ) : null}
-                    {/* Description / instructions */}
-                    {(detail?.description || detail?.instructions) && (
-                      <div className="px-3 py-2 border-t space-y-1 bg-white">
-                        {detail.description && <p className="text-xs text-gray-600">{detail.description}</p>}
-                        {detail.instructions && (
-                          <p className="text-xs text-gray-500 whitespace-pre-wrap">{detail.instructions}</p>
-                        )}
-                      </div>
-                    )}
-                    {/* Video */}
-                    {detail?.video_url && (
-                      <div className="border-t">
-                        <VideoPlayer url={detail.video_url} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+          {/* Objective */}
+          {session.objective && (
+            <div className="px-5 py-3 border-b bg-green-50 flex gap-2 text-sm">
+              <span>🎯</span>
+              <span className="text-gray-700">{session.objective}</span>
             </div>
           )}
 
-          {/* Cardio / Swim structure */}
+          {/* ── GYM EXERCISES ── */}
+          {hasExercises && (
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                Programme — {exercises.length} exercice{exercises.length > 1 ? 's' : ''}
+                {loading && <span className="ml-2 text-gray-300 animate-pulse">chargement...</span>}
+              </p>
+              {exercises.map((ex, i) => (
+                <ExerciseCard key={ex.exercise_id ?? i} ex={ex} index={i} />
+              ))}
+            </div>
+          )}
+
+          {/* ── CARDIO / SWIM ── */}
           {hasCardioData && (
-            <div className="px-5 py-3 space-y-2.5">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Séance</p>
+            <div className="px-4 py-4 space-y-4">
 
-              {data.warmup?.duration_min && (
-                <div className="flex items-start gap-2 text-sm">
-                  <span className="text-blue-400 mt-0.5">🔥</span>
-                  <div>
-                    <span className="font-medium">Échauffement</span>
-                    <span className="text-gray-500 ml-2">{data.warmup.duration_min} min
-                      {data.warmup.zone ? ` (${data.warmup.zone})` : ''}
-                    </span>
-                    {data.warmup.notes ? <p className="text-xs text-gray-400 mt-0.5">{data.warmup.notes}</p> : null}
-                  </div>
-                </div>
-              )}
-
-              {data.main?.mode === 'continuous' && (
+              {/* Terrain */}
+              {sd.terrain && TERRAIN_LABELS[sd.terrain] && (
                 <div className="flex items-center gap-2 text-sm">
-                  <span>💪</span>
-                  <span className="font-medium">Corps</span>
-                  <span className="text-gray-600">
-                    {data.main.duration_min ? `${data.main.duration_min} min` : ''}
-                    {data.main.distance_km ? ` · ${data.main.distance_km} km` : ''}
-                  </span>
-                  {data.main.zone && (
-                    <span className="px-1.5 py-0.5 rounded text-xs font-bold text-white"
-                      style={{ backgroundColor: ZONE_COLORS[data.main.zone] ?? '#9ca3af' }}>
-                      {data.main.zone}
-                    </span>
-                  )}
+                  <span className="text-gray-400 text-xs font-bold uppercase tracking-wide w-24 shrink-0">Terrain</span>
+                  <span className="font-medium">{TERRAIN_LABELS[sd.terrain]}</span>
                 </div>
               )}
 
-              {data.main?.mode !== 'continuous' && (data.main?.intervals ?? []).length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-1.5">💪 Intervalles</p>
-                  <div className="space-y-1.5 ml-2">
-                    {data.main.intervals.map((intv, i) => (
-                      <div key={i} className="rounded-lg bg-gray-50 border px-3 py-2 text-xs flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-gray-800">
-                          {intv.reps}×{intv.distance_m ? `${intv.distance_m} m` : intv.duration_sec ? `${intv.duration_sec} s` : ''}
-                        </span>
-                        {intv.zone && (
-                          <span className="px-1.5 py-0.5 rounded font-bold text-white"
-                            style={{ backgroundColor: ZONE_COLORS[intv.zone] ?? '#9ca3af' }}>
-                            {intv.zone}
-                          </span>
-                        )}
-                        {intv.vma_pct ? <span className="text-gray-500">@ {intv.vma_pct}%</span> : null}
-                        {intv.recovery_min ? <span className="text-gray-400">· récup {intv.recovery_min} min</span> : null}
-                      </div>
+              {/* Swimming equipment */}
+              {isSwim && (sd.equipment ?? []).length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-gray-400 text-xs font-bold uppercase tracking-wide w-24 shrink-0">Matériel</span>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {sd.equipment.map(k => (
+                      <span key={k} className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                        {SWIM_LABELS[k] ?? k}
+                      </span>
                     ))}
                   </div>
                 </div>
               )}
 
-              {data.cooldown?.duration_min && (
-                <div className="flex items-start gap-2 text-sm">
-                  <span className="text-green-500 mt-0.5">🌿</span>
-                  <div>
-                    <span className="font-medium">Retour au calme</span>
-                    <span className="text-gray-500 ml-2">{data.cooldown.duration_min} min
-                      {data.cooldown.zone ? ` (${data.cooldown.zone})` : ''}
-                    </span>
-                    {data.cooldown.notes ? <p className="text-xs text-gray-400 mt-0.5">{data.cooldown.notes}</p> : null}
+              {/* Échauffement */}
+              {sd.warmup?.duration_min && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 overflow-hidden">
+                  <div className="px-4 py-2.5 flex items-center gap-3">
+                    <span className="text-xl">🔥</span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-blue-900">Échauffement</p>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        {sd.warmup.duration_min} min
+                        {sd.warmup.zone ? <> · <ZoneBadge zone={sd.warmup.zone} /></> : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {sd.warmup.notes && (
+                    <div className="px-4 py-2 border-t border-blue-100 text-xs text-blue-800 italic">
+                      {sd.warmup.notes}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Corps — continu */}
+              {sd.main?.mode === 'continuous' && (
+                <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 flex items-center gap-3">
+                  <span className="text-xl">💪</span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm text-red-900">Corps de séance</p>
+                    <p className="text-xs text-red-700 mt-0.5 flex items-center gap-2 flex-wrap">
+                      {sd.main.duration_min ? <span>{sd.main.duration_min} min</span> : null}
+                      {sd.main.distance_km  ? <span>{sd.main.distance_km} km</span>  : null}
+                      {sd.main.zone ? <ZoneBadge zone={sd.main.zone} /> : null}
+                    </p>
                   </div>
                 </div>
               )}
 
-              {isSwim && (data.equipment ?? []).length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span>🏊</span>
-                  <span className="text-gray-600">{data.equipment.join(', ')}</span>
+              {/* Corps — intervalles */}
+              {sd.main?.mode !== 'continuous' && (sd.main?.intervals ?? []).length > 0 && (
+                <div className="rounded-xl border border-red-100 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-red-50 flex items-center gap-2">
+                    <span className="text-lg">💪</span>
+                    <p className="font-semibold text-sm text-red-900">
+                      Intervalles — {sd.main.intervals.length} bloc{sd.main.intervals.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="divide-y">
+                    {sd.main.intervals.map((intv, i) => {
+                      const work = intv.distance_m
+                        ? `${intv.distance_m} m`
+                        : intv.duration_sec
+                          ? `${intv.duration_sec} s`
+                          : ''
+                      const recov = intv.recovery_min
+                        ? `${intv.recovery_min} min ${RECOVERY_LABELS[intv.recovery_type] ?? ''}`
+                        : intv.recovery_dist_m
+                          ? `${intv.recovery_dist_m} m ${RECOVERY_LABELS[intv.recovery_type] ?? ''}`
+                          : null
+                      return (
+                        <div key={i} className="px-4 py-3 flex items-start gap-3">
+                          <span className="text-xs font-bold text-gray-400 w-5 pt-0.5">{i + 1}</span>
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm">{intv.reps} × {work}</span>
+                              {intv.zone ? <ZoneBadge zone={intv.zone} /> : null}
+                              {intv.vma_pct ? (
+                                <span className="text-xs text-gray-500 font-mono">@ {intv.vma_pct}%</span>
+                              ) : null}
+                            </div>
+                            {recov && (
+                              <p className="text-xs text-gray-400">Récup : {recov}</p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Retour au calme */}
+              {sd.cooldown?.duration_min && (
+                <div className="rounded-xl border border-green-100 bg-green-50 overflow-hidden">
+                  <div className="px-4 py-2.5 flex items-center gap-3">
+                    <span className="text-xl">🌿</span>
+                    <div className="flex-1">
+                      <p className="font-semibold text-sm text-green-900">Retour au calme</p>
+                      <p className="text-xs text-green-700 mt-0.5">
+                        {sd.cooldown.duration_min} min
+                        {sd.cooldown.zone ? <> · <ZoneBadge zone={sd.cooldown.zone} /></> : ''}
+                      </p>
+                    </div>
+                  </div>
+                  {sd.cooldown.notes && (
+                    <div className="px-4 py-2 border-t border-green-100 text-xs text-green-800 italic">
+                      {sd.cooldown.notes}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
-          {/* Fallback: plain description */}
+          {/* Fallback */}
           {!hasExercises && !hasCardioData && session.description && (
-            <div className="px-5 py-3">
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1.5">Détail</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{session.description}</p>
+            <div className="px-5 py-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Détail</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{session.description}</p>
+            </div>
+          )}
+
+          {/* Day off */}
+          {session.session_type === 'day_off' && (
+            <div className="px-5 py-10 text-center text-gray-400">
+              <p className="text-4xl mb-3">😴</p>
+              <p className="font-semibold">Journée de repos</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 shrink-0 border-t">
+        <div className="px-5 py-4 border-t shrink-0">
           <button onClick={onClose}
-            className="w-full rounded-xl py-2.5 text-sm font-semibold"
+            className="w-full rounded-xl py-3 text-sm font-bold"
             style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
             Fermer
           </button>
@@ -229,6 +335,8 @@ function SessionModal({ session, onClose }) {
       </div>
     </div>
   )
+
+  return createPortal(modal, document.body)
 }
 
 export default function Calendar() {
