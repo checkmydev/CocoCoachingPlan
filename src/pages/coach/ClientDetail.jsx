@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, isSameMonth, isSameDay, isToday,
-  format, addMonths, subMonths
+  format, addMonths, subMonths, addDays
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -35,7 +35,7 @@ function getMonthWeeks(month) {
 
 
 // ─── Coach calendar ──────────────────────────────────────────────────────────
-function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp }) {
+function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshKey }) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
   const [tab, setTab] = useState('planned') // 'planned' | 'done' | 'both'
   const [planned, setPlanned] = useState([])
@@ -55,7 +55,7 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp }) {
       .lte('session_date', to)
       .order('session_date')
     setPlanned(data ?? [])
-  }, [clientId, currentMonth])
+  }, [clientId, currentMonth, refreshKey])
 
   useEffect(() => { fetchPlanned() }, [fetchPlanned])
 
@@ -232,7 +232,9 @@ export default function ClientDetail() {
   const [assigning, setAssigning] = useState(false)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
-  const [section, setSection] = useState('calendar') // 'calendar' | 'programs' | 'notes' | 'history'
+  const [section, setSection] = useState('calendar')
+  const [calendarRefreshKey, setCalendarRefreshKey] = useState(0)
+  const [generating, setGenerating] = useState(null) // cpId being generated
 
   useEffect(() => {
     loadAll()
@@ -278,6 +280,43 @@ export default function ClientDetail() {
     setSavingNotes(true)
     await supabase.from('profiles').update({ coach_notes: notes }).eq('id', id)
     setSavingNotes(false)
+  }
+
+  async function generateCalendarFromProgram(cp) {
+    if (!cp.start_date) {
+      alert('Ce programme n\'a pas de date de début. Ajoutez une date de début.')
+      return
+    }
+    setGenerating(cp.id)
+    const { data: pSessions } = await supabase
+      .from('program_sessions')
+      .select('id, name, week, day')
+      .eq('program_id', cp.program_id)
+      .order('week').order('day')
+
+    if (!pSessions?.length) {
+      alert('Ce programme ne contient aucune séance.')
+      setGenerating(null)
+      return
+    }
+
+    const startDate = new Date(cp.start_date + 'T12:00:00')
+    const insertData = pSessions.map(s => ({
+      client_id: id,
+      coach_id: profile.id,
+      session_date: format(addDays(startDate, (s.week - 1) * 7 + (s.day - 1)), 'yyyy-MM-dd'),
+      session_type: 'other',
+      title: s.name,
+      description: `Programme : ${cp.program?.name ?? ''} — Sem. ${s.week} / Jour ${s.day}`,
+      duration_minutes: 60,
+      completed: false,
+      program_session_id: s.id,
+    }))
+
+    await supabase.from('planned_sessions').insert(insertData)
+    setGenerating(null)
+    setCalendarRefreshKey(k => k + 1)
+    setSection('calendar')
   }
 
   if (!client) return (
@@ -397,6 +436,7 @@ export default function ClientDetail() {
           logs={logs}
           clientVma={clientProfile?.vma_kmh ?? null}
           clientFtp={clientProfile?.ftp_watts ?? null}
+          refreshKey={calendarRefreshKey}
         />
       )}
 
@@ -418,12 +458,27 @@ export default function ClientDetail() {
           </form>
           <div className="divide-y">
             {clientPrograms.map(cp => (
-              <div key={cp.id} className="flex items-center justify-between py-3">
-                <span className="font-medium text-sm">{cp.program?.name}</span>
-                <select value={cp.status} onChange={e => updateProgramStatus(cp.id, e.target.value)}
-                  className={`text-xs px-2 py-0.5 rounded-full border-0 ${statusColors[cp.status]}`}>
-                  {Object.entries(statusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
+              <div key={cp.id} className="py-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-sm">{cp.program?.name}</span>
+                  <select value={cp.status} onChange={e => updateProgramStatus(cp.id, e.target.value)}
+                    className={`text-xs px-2 py-0.5 rounded-full border-0 ${statusColors[cp.status]}`}>
+                    {Object.entries(statusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">
+                    Début : {cp.start_date ? format(new Date(cp.start_date + 'T12:00:00'), 'dd/MM/yyyy') : '—'}
+                  </span>
+                  <button
+                    onClick={() => generateCalendarFromProgram(cp)}
+                    disabled={generating === cp.id}
+                    className="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors disabled:opacity-50"
+                    style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac' }}
+                    title="Génère une séance planifiée par jour du programme dans le calendrier">
+                    {generating === cp.id ? '⏳ Génération...' : '📅 Planifier dans le calendrier'}
+                  </button>
+                </div>
               </div>
             ))}
             {clientPrograms.length === 0 && <p className="text-sm text-gray-400 py-2">Aucun programme assigné.</p>}
