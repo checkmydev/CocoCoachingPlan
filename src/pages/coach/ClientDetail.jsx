@@ -42,6 +42,10 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
   const [modalDay, setModalDay] = useState(null)
   const [editSession, setEditSession] = useState(null)
 
+  // Drag & drop
+  const [dragging, setDragging] = useState(null)
+  const [dragOver, setDragOver] = useState(null)
+
   // Copy mode
   const [copyMode, setCopyMode] = useState(false)
   const [selectedDays, setSelectedDays] = useState(new Set())
@@ -115,6 +119,7 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
   }
 
   function openAdd(day) {
+    if (dragging) return
     if (copyMode) {
       const key = format(day, 'yyyy-MM-dd')
       const hasSessions = planned.some(s => s.session_date === key)
@@ -134,6 +139,35 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
   }
   function closeModal() { setModalDay(null); setEditSession(null) }
   async function afterSave() { await fetchPlanned(); closeModal() }
+
+  function onSessionDragStart(e, s) {
+    setDragging(s)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function onSessionDragEnd() {
+    setDragging(null)
+    setDragOver(null)
+  }
+
+  function onCellDragOver(e, day) {
+    if (!dragging) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const key = format(day, 'yyyy-MM-dd')
+    setDragOver(prev => prev === key ? prev : key)
+  }
+
+  async function onCellDrop(e, day) {
+    e.preventDefault()
+    if (!dragging) return
+    const newDate = format(day, 'yyyy-MM-dd')
+    setDragging(null)
+    setDragOver(null)
+    if (dragging.session_date === newDate) return
+    await supabase.from('planned_sessions').update({ session_date: newDate }).eq('id', dragging.id)
+    await fetchPlanned()
+  }
 
   function cancelCopy() {
     setCopyMode(false)
@@ -275,8 +309,11 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
                   return (
                     <td key={day.toISOString()}
                       onClick={() => inMonth && openAdd(day)}
-                      className={`align-top p-1 border-r last:border-r-0 min-h-[64px] transition-colors ${
+                      onDragOver={e => inMonth && onCellDragOver(e, day)}
+                      onDrop={e => inMonth && onCellDrop(e, day)}
+                      className={`align-top p-1 border-r last:border-r-0 transition-colors ${
                         !inMonth ? 'bg-gray-50 cursor-default'
+                        : dragOver === format(day, 'yyyy-MM-dd') && dragging ? 'bg-green-100 ring-2 ring-inset ring-green-400'
                         : copyMode && selectedDays.has(format(day, 'yyyy-MM-dd')) ? 'bg-blue-100 cursor-pointer ring-2 ring-inset ring-blue-400'
                         : copyMode ? 'cursor-pointer hover:bg-blue-50'
                         : 'cursor-pointer hover:bg-green-50'
@@ -293,10 +330,16 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
                           const type = s._isLog
                             ? { label: s.title, color: '#22c55e', bg: '#dcfce7', emoji: '✅' }
                             : (SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other)
+                          const isDraggingThis = dragging?.id === s.id
                           return (
                             <button key={s.id}
+                              draggable={!s._isLog && !copyMode}
+                              onDragStart={e => !s._isLog && onSessionDragStart(e, s)}
+                              onDragEnd={onSessionDragEnd}
                               onClick={e => !s._isLog && openEdit(s, e)}
-                              className="w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate leading-tight transition-opacity hover:opacity-80"
+                              className={`w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate leading-tight transition-all ${
+                                isDraggingThis ? 'opacity-40 scale-95' : 'hover:opacity-80'
+                              } ${!s._isLog && !copyMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
                               style={{ backgroundColor: type.bg, color: type.color }}
                               title={s.title || type.label}>
                               {type.emoji} {s.title || type.label}
