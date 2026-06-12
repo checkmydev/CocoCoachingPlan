@@ -496,19 +496,24 @@ function calcDuration(type, data) {
 
 // ─── Predefined session picker ────────────────────────────────────────────────
 function PredefinedPicker({ sessionType, coachId, onSelect }) {
-  const [programs, setPrograms] = useState([])
+  const [mine, setMine] = useState([])
+  const [shared, setShared] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!coachId) { setLoading(false); return }
     let query = supabase.from('programs')
-      .select('id, name, description, sport_type, session_data')
-      .eq('coach_id', coachId)
+      .select('id, name, description, sport_type, session_data, coach_id')
       .order('name')
     if (sessionType && sessionType !== 'other') {
       query = query.eq('sport_type', sessionType)
     }
-    query.then(({ data }) => { setPrograms(data ?? []); setLoading(false) })
+    query.then(({ data }) => {
+      const all = data ?? []
+      setMine(all.filter(p => p.coach_id === coachId))
+      setShared(all.filter(p => p.coach_id !== coachId))
+      setLoading(false)
+    })
   }, [sessionType, coachId])
 
   async function handleSelect(prog) {
@@ -541,7 +546,7 @@ function PredefinedPicker({ sessionType, coachId, onSelect }) {
 
   if (loading) return <p className="text-sm text-gray-400 py-3 text-center">Chargement...</p>
 
-  if (programs.length === 0) {
+  if (mine.length === 0 && shared.length === 0) {
     return (
       <div className="rounded-xl bg-gray-50 border border-dashed p-5 text-center text-sm text-gray-400">
         Aucune séance enregistrée pour ce type.<br />
@@ -550,32 +555,43 @@ function PredefinedPicker({ sessionType, coachId, onSelect }) {
     )
   }
 
+  function ProgramRow({ prog }) {
+    const type = SESSION_TYPES[prog.sport_type] ?? SESSION_TYPES.other
+    const hasData = prog.session_data && Object.keys(prog.session_data).length > 0
+    return (
+      <button type="button" onClick={() => handleSelect(prog)}
+        className="w-full text-left px-4 py-3 hover:bg-green-50 transition-colors flex items-center gap-3 border-b last:border-b-0">
+        <span className="text-xl shrink-0">{type.emoji}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{prog.name}</p>
+          {prog.description
+            ? <p className="text-xs text-gray-400 mt-0.5 truncate">{prog.description}</p>
+            : <p className="text-xs text-gray-300 mt-0.5">{hasData ? 'Séance complète' : 'Exercices enregistrés'}</p>
+          }
+        </div>
+        <span className="text-green-500 text-xl shrink-0">+</span>
+      </button>
+    )
+  }
+
   return (
-    <div className="rounded-xl border overflow-hidden">
-      <div className="bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-        Bibliothèque — {programs.length} séance{programs.length > 1 ? 's' : ''}
-      </div>
-      <div className="divide-y max-h-64 overflow-y-auto">
-        {programs.map(prog => {
-          const type = SESSION_TYPES[prog.sport_type] ?? SESSION_TYPES.other
-          const hasData = prog.session_data && Object.keys(prog.session_data).length > 0
-          return (
-            <button key={prog.id} type="button"
-              onClick={() => handleSelect(prog)}
-              className="w-full text-left px-4 py-3 hover:bg-green-50 transition-colors flex items-center gap-3">
-              <span className="text-xl shrink-0">{type.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate">{prog.name}</p>
-                {prog.description
-                  ? <p className="text-xs text-gray-400 mt-0.5 truncate">{prog.description}</p>
-                  : <p className="text-xs text-gray-300 mt-0.5">{hasData ? 'Séance complète' : 'Exercices enregistrés'}</p>
-                }
-              </div>
-              <span className="text-green-500 text-xl shrink-0">+</span>
-            </button>
-          )
-        })}
-      </div>
+    <div className="rounded-xl border overflow-hidden max-h-72 overflow-y-auto">
+      {mine.length > 0 && (
+        <>
+          <div className="bg-gray-50 px-4 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide sticky top-0">
+            Mes séances ({mine.length})
+          </div>
+          {mine.map(p => <ProgramRow key={p.id} prog={p} />)}
+        </>
+      )}
+      {shared.length > 0 && (
+        <>
+          <div className="bg-gray-50 px-4 py-1.5 text-xs font-bold text-gray-400 uppercase tracking-wide sticky top-0 border-t">
+            Bibliothèque partagée ({shared.length})
+          </div>
+          {shared.map(p => <ProgramRow key={p.id} prog={p} />)}
+        </>
+      )}
     </div>
   )
 }
