@@ -61,7 +61,7 @@ export default function ClientLayout({ children }) {
       <header className="bg-white border-b sticky top-0 z-40 shadow-sm">
         <div className="px-4 py-2.5 flex items-center gap-3">
 
-          <div className="rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: '#0f0f0f' }}>
+          <div className="bg-white rounded-xl p-1.5 shrink-0 inline-flex">
             <Logo size="sm" />
           </div>
 

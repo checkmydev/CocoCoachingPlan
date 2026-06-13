@@ -65,7 +65,7 @@ function CardioBuilder({ type, vma, ftp, value, onChange }) {
   const unit = isPower ? 'W' : 'km/h'
 
   function newInterval() {
-    return { id: Date.now(), reps: '1', effort_mode: 'distance', distance_m: '400', duration_sec: '', zone: 'Z4', vma_pct: 100, recovery_mode: 'time', recovery_sec: '90', recovery_dist_m: '' }
+    return { id: Date.now(), reps: '1', effort_mode: 'distance', distance_m: '400', duration_sec: '', zone: 'Z4', vma_pct: 100, recovery_mode: 'distance', recovery_sec: '', recovery_dist_m: '200' }
   }
 
   // Compute derived state BEFORE mutation helpers so closures always see the correct intervals
@@ -252,23 +252,23 @@ function CardioBuilder({ type, vma, ftp, value, onChange }) {
                   <div className="mt-2">
                     <div className="flex gap-1 mb-1">
                       <button type="button"
-                        onClick={() => updateInterval(interval.id, 'recovery_mode', 'time')}
-                        className="flex-1 text-xs py-0.5 rounded-md border transition-all"
-                        style={(interval.recovery_mode ?? 'time') === 'time'
-                          ? { backgroundColor: '#6b7280', borderColor: '#6b7280', color: '#fff', fontWeight: 700 }
-                          : { borderColor: '#e5e7eb', color: '#6b7280' }}>
-                        Récup durée (sec)
-                      </button>
-                      <button type="button"
                         onClick={() => updateInterval(interval.id, 'recovery_mode', 'distance')}
                         className="flex-1 text-xs py-0.5 rounded-md border transition-all"
-                        style={(interval.recovery_mode ?? 'time') === 'distance'
+                        style={(interval.recovery_mode ?? 'distance') === 'distance'
                           ? { backgroundColor: '#6b7280', borderColor: '#6b7280', color: '#fff', fontWeight: 700 }
                           : { borderColor: '#e5e7eb', color: '#6b7280' }}>
                         Récup distance (m)
                       </button>
+                      <button type="button"
+                        onClick={() => updateInterval(interval.id, 'recovery_mode', 'time')}
+                        className="flex-1 text-xs py-0.5 rounded-md border transition-all"
+                        style={(interval.recovery_mode ?? 'distance') === 'time'
+                          ? { backgroundColor: '#6b7280', borderColor: '#6b7280', color: '#fff', fontWeight: 700 }
+                          : { borderColor: '#e5e7eb', color: '#6b7280' }}>
+                        Récup durée (sec)
+                      </button>
                     </div>
-                    {(interval.recovery_mode ?? 'time') === 'distance' ? (
+                    {(interval.recovery_mode ?? 'distance') === 'distance' ? (
                       <input type="number" min={0} step={50} value={interval.recovery_dist_m ?? ''}
                         placeholder="200"
                         onChange={e => updateInterval(interval.id, 'recovery_dist_m', e.target.value)}

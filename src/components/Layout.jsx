@@ -26,8 +26,10 @@ export default function Layout({ children }) {
       {/* ── Sidebar — desktop only ── */}
       <aside className="hidden md:flex w-56 flex-col shrink-0" style={{ backgroundColor: '#0f0f0f' }}>
         <div className="p-5 border-b" style={{ borderColor: 'rgba(57,226,41,0.15)' }}>
-          <Logo dark size="sm" />
-          <p className="text-xs mt-2 truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          <div className="bg-white rounded-2xl p-2.5 inline-flex mb-3">
+            <Logo size="lg" />
+          </div>
+          <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.35)' }}>
             {profile?.name ?? profile?.email}
           </p>
         </div>
@@ -70,7 +72,9 @@ export default function Layout({ children }) {
           className="flex md:hidden items-center justify-between px-4 py-2.5 sticky top-0 z-40 shrink-0"
           style={{ backgroundColor: '#0f0f0f', borderBottom: '1px solid rgba(57,226,41,0.15)' }}
         >
-          <Logo dark size="sm" />
+          <div className="bg-white rounded-xl p-1.5 inline-flex">
+            <Logo size="sm" />
+          </div>
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 border transition-colors"
