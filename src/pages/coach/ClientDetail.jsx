@@ -593,10 +593,10 @@ export default function ClientDetail() {
       </div>
 
       {/* Section nav */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 overflow-x-auto">
+      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 overflow-x-auto scrollbar-hide">
         {SECTIONS.map(s => (
           <button key={s.key} onClick={() => setSection(s.key)}
-            className="flex-1 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
+            className="shrink-0 flex-1 min-w-fit px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
             style={section === s.key
               ? { backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.1)', color: '#000' }
               : { color: '#6b7280' }}>

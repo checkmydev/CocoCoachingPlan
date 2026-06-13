@@ -10,12 +10,12 @@ import Onboarding from '../pages/client/Onboarding'
 const MOOV_GREEN = '#39E229'
 
 const NAV_LINKS = [
-  { to: '/client/calendar',    label: 'Calendrier' },
-  { to: '/client/programs',    label: 'Séances' },
-  { to: '/client/nutrition',   label: 'Nutrition' },
-  { to: '/client/lifestyle',   label: 'Lifestyle' },
-  { to: '/client/progression', label: '⚡ Progression' },
-  { to: '/client/checkin',     label: 'Check-in' },
+  { to: '/client/calendar',    label: 'Calendrier',      short: 'Agenda',  icon: '📅' },
+  { to: '/client/programs',    label: 'Séances',         short: 'Séances', icon: '📋' },
+  { to: '/client/nutrition',   label: 'Nutrition',       short: 'Nutri.',  icon: '🥗' },
+  { to: '/client/lifestyle',   label: 'Lifestyle',       short: 'Style',   icon: '🌿' },
+  { to: '/client/progression', label: '⚡ Progression',  short: 'Prog.',   icon: '⚡' },
+  { to: '/client/checkin',     label: 'Check-in',        short: 'Check',   icon: '✅' },
 ]
 
 export default function ClientLayout({ children }) {
@@ -32,7 +32,6 @@ export default function ClientLayout({ children }) {
     navigate('/login')
   }
 
-  // Full-page spinner while loading client profile
   if (profileLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -45,7 +44,6 @@ export default function ClientLayout({ children }) {
     )
   }
 
-  // Onboarding gate — only for clients with incomplete profile
   if (profile?.role === 'client' && !clientProfile?.completed_at) {
     return (
       <Onboarding
@@ -58,13 +56,17 @@ export default function ClientLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
+
+      {/* ── Header ── */}
+      <header className="bg-white border-b sticky top-0 z-40 shadow-sm">
         <div className="px-4 py-2.5 flex items-center gap-3">
+
           <div className="rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: '#0f0f0f' }}>
             <Logo size="sm" />
           </div>
 
-          <nav className="flex gap-1 flex-1 justify-center overflow-x-auto scrollbar-hide">
+          {/* Desktop nav */}
+          <nav className="hidden md:flex gap-1 flex-1 justify-center overflow-x-auto scrollbar-hide">
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink key={to} to={to}
                 className={({ isActive }) =>
@@ -79,14 +81,24 @@ export default function ClientLayout({ children }) {
             ))}
           </nav>
 
+          {/* Mobile: streak visible in header */}
+          <div className="flex md:hidden flex-1 justify-center">
+            {stats && (
+              <span className="text-sm font-bold" style={{ color: '#f97316' }}>
+                🔥 {stats.streak_days} jour{stats.streak_days !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Stats (desktop) + logout */}
           <div className="flex items-center gap-2 shrink-0">
             {stats && (
               <>
-                <span className="text-sm font-semibold" style={{ color: '#f97316' }}>
+                <span className="hidden md:inline text-sm font-semibold" style={{ color: '#f97316' }}>
                   🔥 {stats.streak_days}
                 </span>
                 {level && (
-                  <span className="hidden sm:inline px-2 py-0.5 rounded-full text-xs font-bold text-black"
+                  <span className="hidden md:inline px-2 py-0.5 rounded-full text-xs font-bold text-black"
                     style={{ backgroundColor: MOOV_GREEN }}>
                     Niv.{level.level}
                   </span>
@@ -96,7 +108,7 @@ export default function ClientLayout({ children }) {
             <button
               onClick={handleLogout}
               title={`Déconnecter ${profile?.email ?? ''}`}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors ml-1">
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors">
               <span className="hidden sm:inline max-w-[100px] truncate">{profile?.email}</span>
               <span>↩</span>
             </button>
@@ -114,7 +126,27 @@ export default function ClientLayout({ children }) {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4">{children}</main>
+      {/* Content */}
+      <main className="max-w-2xl mx-auto p-4 pb-24 md:pb-6">{children}</main>
+
+      {/* ── Bottom tab bar — mobile only ── */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 flex md:hidden bg-white"
+        style={{ borderTop: '1px solid #e5e7eb', boxShadow: '0 -2px 8px rgba(0,0,0,0.06)' }}
+      >
+        {NAV_LINKS.map(({ to, short, icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
+            style={({ isActive }) => ({ color: isActive ? MOOV_GREEN : '#9ca3af' })}
+          >
+            <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{icon}</span>
+            <span style={{ fontSize: '.58rem', fontWeight: 600, letterSpacing: '.01em' }}>{short}</span>
+          </NavLink>
+        ))}
+      </nav>
+
     </div>
   )
 }

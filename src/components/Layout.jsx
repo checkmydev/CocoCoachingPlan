@@ -62,13 +62,32 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      {/* ── Main content ── */}
-      <main
-        className="flex-1 bg-gray-50 overflow-y-auto pb-16 md:pb-0"
-        style={{ display: 'flex', flexDirection: 'column' }}
-      >
-        {children}
-      </main>
+      {/* ── Content column (mobile header + main) ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+
+        {/* Mobile top header */}
+        <header
+          className="flex md:hidden items-center justify-between px-4 py-2.5 sticky top-0 z-40 shrink-0"
+          style={{ backgroundColor: '#0f0f0f', borderBottom: '1px solid rgba(57,226,41,0.15)' }}
+        >
+          <Logo dark size="sm" />
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 border transition-colors"
+            style={{ color: 'rgba(255,255,255,0.55)', borderColor: 'rgba(255,255,255,0.15)' }}
+          >
+            <span className="max-w-[150px] truncate">{profile?.email}</span>
+            <span>↩</span>
+          </button>
+        </header>
+
+        <main
+          className="flex-1 bg-gray-50 overflow-y-auto pb-16 md:pb-0"
+          style={{ display: 'flex', flexDirection: 'column' }}
+        >
+          {children}
+        </main>
+      </div>
 
       {/* ── Bottom tab bar — mobile only ── */}
       <nav

@@ -68,28 +68,29 @@ function CardioBuilder({ type, vma, ftp, value, onChange }) {
     return { id: Date.now(), reps: '1', effort_mode: 'distance', distance_m: '400', duration_sec: '', zone: 'Z4', vma_pct: 100, recovery_mode: 'time', recovery_sec: '90', recovery_dist_m: '' }
   }
 
+  // Compute derived state BEFORE mutation helpers so closures always see the correct intervals
+  const warmup = value.warmup ?? {}
+  const main = value.main ?? { mode: 'intervals', intervals: [newInterval()] }
+  const cooldown = value.cooldown ?? {}
+
   function updatePart(part, key, val) {
     onChange({ ...value, [part]: { ...value[part], [key]: val } })
   }
 
   function addInterval() {
-    const intervals = [...(value.main?.intervals ?? []), newInterval()]
-    onChange({ ...value, main: { ...value.main, intervals } })
+    const intervals = [...(main.intervals ?? []), newInterval()]
+    onChange({ ...value, main: { ...main, intervals } })
   }
 
   function updateInterval(id, key, val) {
-    const intervals = (value.main?.intervals ?? []).map(i => i.id === id ? { ...i, [key]: val } : i)
-    onChange({ ...value, main: { ...value.main, intervals } })
+    const intervals = (main.intervals ?? []).map(i => i.id === id ? { ...i, [key]: val } : i)
+    onChange({ ...value, main: { ...main, intervals } })
   }
 
   function removeInterval(id) {
-    const intervals = (value.main?.intervals ?? []).filter(i => i.id !== id)
-    onChange({ ...value, main: { ...value.main, intervals } })
+    const intervals = (main.intervals ?? []).filter(i => i.id !== id)
+    onChange({ ...value, main: { ...main, intervals } })
   }
-
-  const warmup = value.warmup ?? {}
-  const main = value.main ?? { mode: 'intervals', intervals: [newInterval()] }
-  const cooldown = value.cooldown ?? {}
 
   return (
     <div className="space-y-4">
