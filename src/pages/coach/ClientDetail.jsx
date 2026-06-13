@@ -214,10 +214,10 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
   return (
     <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
       {/* Tabs */}
-      <div className="flex border-b px-4 gap-1 pt-2">
+      <div className="flex border-b px-2 sm:px-4 gap-0.5 pt-2 overflow-x-auto scrollbar-hide">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className="px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors"
+            className="shrink-0 px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-t-lg border-b-2 whitespace-nowrap transition-colors"
             style={tab === t.key
               ? { borderBottomColor: MOOV_GREEN, color: '#000' }
               : { borderBottomColor: 'transparent', color: '#6b7280' }}>
@@ -293,7 +293,7 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
 
       {/* Calendar grid */}
       <div>
-        <table className="w-full text-sm border-collapse">
+        <table className="w-full text-sm border-collapse table-fixed">
           <thead>
             <tr className="bg-gray-50 border-b">
               {DAYS_HEADER.map((d, i) => (
