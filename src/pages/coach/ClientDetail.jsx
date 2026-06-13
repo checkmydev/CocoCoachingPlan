@@ -824,50 +824,41 @@ export default function ClientDetail() {
             <div className="bg-white rounded-xl border shadow-sm p-4">
               <h2 className="text-sm font-semibold mb-3 text-gray-700">Exporter la séance vers une montre</h2>
               <div className="flex flex-wrap gap-2">
-                {clientProfile?.vma_kmh ? (
-                  <button
-                    onClick={() => downloadFile(
-                      generateRunTCX(client?.name, clientProfile.vma_kmh),
-                      `moovlab_course_vma_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.tcx`
-                    )}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
-                  >
-                    <span>⬇</span>
-                    <span>Garmin / Polar / Suunto</span>
-                    <span className="text-xs text-gray-400 font-normal">Course .tcx</span>
-                  </button>
-                ) : (
-                  <span className="text-xs text-orange-400 self-center">VMA requise pour export course</span>
-                )}
+                <button
+                  onClick={() => downloadFile(
+                    generateRunTCX(client?.name, vma),
+                    `moovlab_course_vma_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.tcx`
+                  )}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  <span>⬇</span>
+                  <span>Garmin / Polar / Suunto</span>
+                  <span className="text-xs text-gray-400 font-normal">Course .tcx — {vma} km/h{!clientProfile?.vma_kmh && ' (défaut)'}</span>
+                </button>
 
-                {clientProfile?.ftp_watts ? (
-                  <>
-                    <button
-                      onClick={() => downloadFile(
-                        generateBikeZWO(client?.name),
-                        `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.zwo`
-                      )}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      <span>⬇</span>
-                      <span>Zwift</span>
-                      <span className="text-xs text-gray-400 font-normal">Vélo .zwo</span>
-                    </button>
-                    <button
-                      onClick={() => downloadFile(
-                        generateBikeMRC(client?.name, clientProfile.ftp_watts),
-                        `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.mrc`
-                      )}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      <span>⬇</span>
-                      <span>Wahoo / TrainerRoad</span>
-                      <span className="text-xs text-gray-400 font-normal">Vélo .mrc — {clientProfile.ftp_watts}W</span>
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-xs text-orange-400 self-center">FTP requise pour export vélo</span>
-                )}
+                <button
+                  onClick={() => downloadFile(
+                    generateBikeZWO(client?.name),
+                    `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.zwo`
+                  )}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  <span>⬇</span>
+                  <span>Zwift</span>
+                  <span className="text-xs text-gray-400 font-normal">Vélo .zwo</span>
+                </button>
+
+                <button
+                  onClick={() => downloadFile(
+                    generateBikeMRC(client?.name, ftp),
+                    `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.mrc`
+                  )}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  <span>⬇</span>
+                  <span>Wahoo / TrainerRoad</span>
+                  <span className="text-xs text-gray-400 font-normal">Vélo .mrc — {ftp}W{!clientProfile?.ftp_watts && ' (défaut)'}</span>
+                </button>
 
                 <a
                   href="https://connect.garmin.com/modern/import-data"
