@@ -291,80 +291,78 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
         </div>
       )}
 
-      {/* Calendar grid */}
+      {/* Calendar grid — CSS Grid replaces <table> for reliable mobile sizing */}
       <div>
-        <table className="w-full text-sm border-collapse table-fixed">
-          <thead>
-            <tr className="bg-gray-50 border-b">
-              {DAYS_HEADER.map((d, i) => (
-                <th key={d} className="py-2 text-xs font-semibold text-gray-500 text-center px-0.5 sm:px-2">
-                  <span className="sm:hidden">{DAYS_HEADER_SHORT[i]}</span>
-                  <span className="hidden sm:inline">{d}</span>
-                </th>
-              ))}
-              <th className="hidden sm:table-cell px-2 py-2 text-xs font-semibold text-gray-500 text-right w-14">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {weeks.map((week, wi) => (
-              <tr key={wi} className="border-b last:border-b-0">
-                {week.map(day => {
-                  const inMonth = isSameMonth(day, currentMonth)
-                  const today = isToday(day)
-                  const daySessions = sessionsForDay(day)
-                  return (
-                    <td key={day.toISOString()}
-                      onClick={() => inMonth && openAdd(day)}
-                      onDragOver={e => inMonth && onCellDragOver(e, day)}
-                      onDrop={e => inMonth && onCellDrop(e, day)}
-                      className={`align-top p-0.5 sm:p-1 border-r last:border-r-0 transition-colors ${
-                        !inMonth ? 'bg-gray-50 cursor-default'
-                        : dragOver === format(day, 'yyyy-MM-dd') && dragging ? 'bg-green-100 ring-2 ring-inset ring-green-400'
-                        : copyMode && selectedDays.has(format(day, 'yyyy-MM-dd')) ? 'bg-blue-100 cursor-pointer ring-2 ring-inset ring-blue-400'
-                        : copyMode ? 'cursor-pointer hover:bg-blue-50'
-                        : 'cursor-pointer hover:bg-green-50'
-                      }`}
-                      style={{ minHeight: 48 }}>
-                      <div className="flex flex-col gap-0.5 min-h-[44px]">
-                        <span className={`text-[10px] sm:text-xs font-medium mb-0.5 inline-flex w-4 h-4 sm:w-5 sm:h-5 items-center justify-center rounded-full ${
-                          today ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'
-                        }`}
-                          style={today ? { backgroundColor: MOOV_GREEN } : {}}>
-                          {format(day, 'd')}
-                        </span>
-                        {daySessions.map(s => {
-                          const type = s._isLog
-                            ? { label: s.title, color: '#22c55e', bg: '#dcfce7', emoji: '✅' }
-                            : (SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other)
-                          const isDraggingThis = dragging?.id === s.id
-                          return (
-                            <button key={s.id}
-                              draggable={!s._isLog && !copyMode}
-                              onDragStart={e => !s._isLog && onSessionDragStart(e, s)}
-                              onDragEnd={onSessionDragEnd}
-                              onClick={e => !s._isLog && openEdit(s, e)}
-                              className={`w-full text-left rounded px-0.5 sm:px-1 py-0.5 text-[10px] sm:text-xs font-medium truncate leading-tight transition-all ${
-                                isDraggingThis ? 'opacity-40 scale-95' : 'hover:opacity-80'
-                              } ${!s._isLog && !copyMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                              style={{ backgroundColor: type.bg, color: type.color }}
-                              title={s.title || type.label}>
-                              <span>{type.emoji}</span>
-                              <span className="hidden sm:inline"> {s.title || type.label}</span>
-                              {s.duration_minutes ? <span className="ml-0.5 opacity-70 hidden sm:inline">{fmtDuration(s.duration_minutes)}</span> : null}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </td>
-                  )
-                })}
-                <td className="hidden sm:table-cell px-2 py-1 text-right align-top">
-                  <span className="text-xs text-gray-400 font-medium">{weekTotal(week)}</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Day headers */}
+        <div className="grid grid-cols-7 sm:grid-cols-[repeat(7,minmax(0,1fr))_3.5rem] bg-gray-50 border-b">
+          {DAYS_HEADER.map((d, i) => (
+            <div key={i} className="py-2 text-xs font-semibold text-gray-500 text-center truncate">
+              <span className="sm:hidden">{DAYS_HEADER_SHORT[i]}</span>
+              <span className="hidden sm:inline">{d}</span>
+            </div>
+          ))}
+          <div className="hidden sm:flex items-center justify-end pr-2 text-xs font-semibold text-gray-500">Total</div>
+        </div>
+
+        {/* Week rows */}
+        {weeks.map((week, wi) => (
+          <div key={wi} className="grid grid-cols-7 sm:grid-cols-[repeat(7,minmax(0,1fr))_3.5rem] border-b last:border-b-0">
+            {week.map(day => {
+              const inMonth = isSameMonth(day, currentMonth)
+              const today = isToday(day)
+              const daySessions = sessionsForDay(day)
+              const dayKey = format(day, 'yyyy-MM-dd')
+              return (
+                <div key={day.toISOString()}
+                  onClick={() => inMonth && openAdd(day)}
+                  onDragOver={e => inMonth && onCellDragOver(e, day)}
+                  onDrop={e => inMonth && onCellDrop(e, day)}
+                  className={`min-w-0 p-0.5 sm:p-1 border-r last:border-r-0 transition-colors ${
+                    !inMonth ? 'bg-gray-50 cursor-default'
+                    : dragOver === dayKey && dragging ? 'bg-green-100 ring-2 ring-inset ring-green-400'
+                    : copyMode && selectedDays.has(dayKey) ? 'bg-blue-100 cursor-pointer ring-2 ring-inset ring-blue-400'
+                    : copyMode ? 'cursor-pointer hover:bg-blue-50'
+                    : 'cursor-pointer hover:bg-green-50'
+                  }`}
+                  style={{ minHeight: 48 }}>
+                  <div className="flex flex-col gap-0.5">
+                    <span className={`text-[10px] sm:text-xs font-medium mb-0.5 inline-flex w-4 h-4 sm:w-5 sm:h-5 items-center justify-center rounded-full ${
+                      today ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'
+                    }`}
+                      style={today ? { backgroundColor: MOOV_GREEN } : {}}>
+                      {format(day, 'd')}
+                    </span>
+                    {daySessions.map(s => {
+                      const type = s._isLog
+                        ? { label: s.title, color: '#22c55e', bg: '#dcfce7', emoji: '✅' }
+                        : (SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other)
+                      const isDraggingThis = dragging?.id === s.id
+                      return (
+                        <button key={s.id}
+                          draggable={!s._isLog && !copyMode}
+                          onDragStart={e => !s._isLog && onSessionDragStart(e, s)}
+                          onDragEnd={onSessionDragEnd}
+                          onClick={e => !s._isLog && openEdit(s, e)}
+                          className={`w-full min-w-0 text-left rounded px-0.5 py-0.5 text-[10px] sm:text-xs font-medium truncate leading-tight transition-all ${
+                            isDraggingThis ? 'opacity-40 scale-95' : 'hover:opacity-80'
+                          } ${!s._isLog && !copyMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                          style={{ backgroundColor: type.bg, color: type.color }}
+                          title={s.title || type.label}>
+                          <span>{type.emoji}</span>
+                          <span className="hidden sm:inline"> {s.title || type.label}</span>
+                          {s.duration_minutes ? <span className="ml-0.5 opacity-70 hidden sm:inline">{fmtDuration(s.duration_minutes)}</span> : null}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+            <div className="hidden sm:flex items-start justify-end px-2 py-1">
+              <span className="text-xs text-gray-400 font-medium">{weekTotal(week)}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Session builder (portal-rendered, always on top) */}
