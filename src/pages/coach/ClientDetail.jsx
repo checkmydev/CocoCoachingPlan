@@ -547,7 +547,7 @@ export default function ClientDetail() {
   ]
 
   return (
-    <div className="p-4 lg:p-6 max-w-5xl mx-auto">
+    <div className="w-full p-4 lg:p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Link to="/coach/clients" className="text-sm text-gray-400 hover:text-gray-700 transition-colors">← Clients</Link>
