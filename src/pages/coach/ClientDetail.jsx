@@ -403,6 +403,8 @@ export default function ClientDetail() {
   const [fcMax, setFcMax] = useState(190)
   const [fcRest, setFcRest] = useState(55)
   const [savingPhysio, setSavingPhysio] = useState(false)
+  const [montreSessions, setMontreSessions] = useState([])
+  const [montreSessionId, setMontreSessionId] = useState(null)
 
   useEffect(() => { loadAll() }, [id])
 
@@ -412,6 +414,18 @@ export default function ClientDetail() {
       setFcRest(clientProfile.fc_repos ?? 55)
     }
   }, [clientProfile])
+
+  useEffect(() => {
+    if (section !== 'montre') return
+    supabase
+      .from('planned_sessions')
+      .select('id, title, session_type, session_date, session_data')
+      .eq('client_id', id)
+      .not('session_data', 'is', null)
+      .order('session_date', { ascending: false })
+      .limit(30)
+      .then(({ data }) => setMontreSessions(data ?? []))
+  }, [section, id])
 
   async function loadAll() {
     const [cRes, cpRes, logsRes, ciRes, extRes] = await Promise.all([
@@ -780,13 +794,110 @@ export default function ClientDetail() {
         const vma    = clientProfile?.vma_kmh   ?? 14
         const ftp    = clientProfile?.ftp_watts ?? 200
         const name   = encodeURIComponent(client?.name ?? '')
-        const src    = `${import.meta.env.BASE_URL}watch-exports/emulator.html?vma=${vma}&ftp=${ftp}&fcmax=${fcMax}&fcrest=${fcRest}&name=${name}`
         const missingVma = !clientProfile?.vma_kmh
         const missingFtp = !clientProfile?.ftp_watts
 
+        const selectedSession = montreSessions.find(s => s.id === montreSessionId) ?? null
+        const sessionParam = selectedSession?.session_data
+          ? `&session=${encodeURIComponent(JSON.stringify(selectedSession.session_data))}&type=${selectedSession.session_type ?? ''}&stitle=${encodeURIComponent(selectedSession.title ?? '')}`
+          : ''
+        const src = `${import.meta.env.BASE_URL}watch-exports/emulator.html?vma=${vma}&ftp=${ftp}&fcmax=${fcMax}&fcrest=${fcRest}&name=${name}${sessionParam}`
+
+        const ZONE_COLORS = { Z1:'#60A5FA', Z2:'#34D399', Z3:'#FBBF24', Z4:'#F87171', Z5:'#A78BFA' }
+        const fmtEffort = iv => iv.effort_mode === 'distance' ? `${iv.distance_m}m` : `${iv.duration_sec}s`
+        const fmtRecov  = iv => iv.recovery_mode === 'distance'
+          ? (parseInt(iv.recovery_dist_m) > 0 ? ` + récup ${iv.recovery_dist_m}m` : '')
+          : (parseInt(iv.recovery_sec)    > 0 ? ` + récup ${iv.recovery_sec}s`    : '')
+
         return (
           <div className="space-y-4">
-            {/* Physio data card */}
+
+            {/* ── Session picker ── */}
+            <div className="bg-white rounded-xl border shadow-sm p-5">
+              <h2 className="font-semibold mb-3">Choisir une séance</h2>
+              {montreSessions.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">
+                  Aucune séance planifiée avec données structurées. Créez des séances via le calendrier.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {montreSessions.map(s => {
+                    const isSelected = s.id === montreSessionId
+                    const type = SESSION_TYPES[s.session_type] ?? SESSION_TYPES.other
+                    return (
+                      <button key={s.id}
+                        onClick={() => setMontreSessionId(isSelected ? null : s.id)}
+                        className={`text-left p-3 rounded-xl border-2 transition-all ${
+                          isSelected
+                            ? 'border-green-400 bg-green-50'
+                            : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                        }`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg shrink-0">{type.emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{s.title || type.label}</p>
+                            <p className="text-xs text-gray-400">
+                              {format(new Date(s.session_date + 'T12:00:00'), 'dd/MM/yyyy')} · {type.label}
+                            </p>
+                          </div>
+                          {isSelected && <span className="text-lg shrink-0" style={{ color: MOOV_GREEN }}>✓</span>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Session detail (when selected) ── */}
+            {selectedSession?.session_data && (() => {
+              const sd  = selectedSession.session_data
+              const wup = sd.warmup  || {}
+              const main= sd.main    || {}
+              const cdn = sd.cooldown|| {}
+              return (
+                <div className="bg-white rounded-xl border shadow-sm p-5">
+                  <h2 className="font-semibold mb-3">Détail — {selectedSession.title}</h2>
+                  <div className="space-y-2">
+                    {+wup.duration_min > 0 && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[wup.zone] || '#34D399' }} />
+                        <span className="text-gray-600 flex-1">Échauffement</span>
+                        <span className="text-gray-400 text-xs">{wup.duration_min}min</span>
+                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[wup.zone] || '#34D399' }}>{wup.zone || 'Z2'}</span>
+                      </div>
+                    )}
+                    {main.mode === 'intervals' && (main.intervals || []).map((iv, i) => (
+                      <div key={i} className="flex items-center gap-3 text-sm">
+                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[iv.zone] || '#F87171' }} />
+                        <span className="text-gray-600 flex-1 truncate">
+                          {parseInt(iv.reps) > 1 ? `${iv.reps}×` : ''}{fmtEffort(iv)}{fmtRecov(iv)}
+                        </span>
+                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[iv.zone] || '#F87171' }}>{iv.zone || 'Z4'}</span>
+                      </div>
+                    ))}
+                    {main.mode === 'continuous' && +main.duration_min > 0 && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[main.zone] || '#FBBF24' }} />
+                        <span className="text-gray-600 flex-1">Continu</span>
+                        <span className="text-gray-400 text-xs">{main.duration_min}min</span>
+                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[main.zone] || '#FBBF24' }}>{main.zone || 'Z3'}</span>
+                      </div>
+                    )}
+                    {+cdn.duration_min > 0 && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[cdn.zone] || '#60A5FA' }} />
+                        <span className="text-gray-600 flex-1">Retour au calme</span>
+                        <span className="text-gray-400 text-xs">{cdn.duration_min}min</span>
+                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[cdn.zone] || '#60A5FA' }}>{cdn.zone || 'Z1'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── Physio data card ── */}
             <div className="bg-white rounded-xl border shadow-sm p-5">
               <h2 className="font-semibold mb-4">Données physiologiques</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -828,7 +939,7 @@ export default function ClientDetail() {
               </div>
             </div>
 
-            {/* Export buttons */}
+            {/* ── Export buttons ── */}
             <div className="bg-white rounded-xl border shadow-sm p-4">
               <h2 className="text-sm font-semibold mb-3 text-gray-700">Exporter la séance vers une montre</h2>
               <div className="flex flex-wrap gap-2">
@@ -843,7 +954,6 @@ export default function ClientDetail() {
                   <span>Garmin / Polar / Suunto</span>
                   <span className="text-xs text-gray-400 font-normal">Course .tcx — {vma} km/h{!clientProfile?.vma_kmh && ' (défaut)'}</span>
                 </button>
-
                 <button
                   onClick={() => downloadFile(
                     generateBikeZWO(client?.name),
@@ -855,7 +965,6 @@ export default function ClientDetail() {
                   <span>Zwift</span>
                   <span className="text-xs text-gray-400 font-normal">Vélo .zwo</span>
                 </button>
-
                 <button
                   onClick={() => downloadFile(
                     generateBikeMRC(client?.name, ftp),
@@ -867,13 +976,8 @@ export default function ClientDetail() {
                   <span>Wahoo / TrainerRoad</span>
                   <span className="text-xs text-gray-400 font-normal">Vélo .mrc — {ftp}W{!clientProfile?.ftp_watts && ' (défaut)'}</span>
                 </button>
-
-                <a
-                  href="https://connect.garmin.com/modern/import-data"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-100 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                >
+                <a href="https://connect.garmin.com/modern/import-data" target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-100 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors">
                   ↗ Importer sur Garmin Connect
                 </a>
               </div>
@@ -882,10 +986,10 @@ export default function ClientDetail() {
               </p>
             </div>
 
-            {/* Emulator iframe */}
+            {/* ── Emulator iframe ── */}
             <div className="rounded-xl overflow-hidden border shadow-sm" style={{ height: 640, background: '#0a0a0a' }}>
               <iframe
-                key={`${vma}-${ftp}-${fcMax}-${fcRest}`}
+                key={`${vma}-${ftp}-${fcMax}-${fcRest}-${montreSessionId ?? 'none'}`}
                 src={src}
                 title="Watch Emulator"
                 style={{ width: '100%', height: '100%', border: 'none' }}

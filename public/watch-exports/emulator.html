@@ -144,6 +144,12 @@ body{background:#0a0a0a;display:flex;flex-direction:column;align-items:center;ju
   <button class="dp"    onclick="setDev('zwift')">🖥 Zwift</button>
 </div>
 
+<div id="wov" style="display:none;width:100%;max-width:320px;margin-bottom:20px;background:#111;border-radius:10px;padding:12px 14px;border:1px solid #1e1e1e">
+  <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#3b3b3b;margin-bottom:8px">📋 Aperçu séance</div>
+  <div id="wov-rows"></div>
+  <div id="wov-total" style="font-size:.62rem;color:#4b5563;margin-top:8px;padding-top:6px;border-top:1px solid #1e1e1e"></div>
+</div>
+
 <div id="dc"></div>
 
 <div class="speed-row">
@@ -171,6 +177,77 @@ const FC_MAX=parseInt(P.get('fcmax'))   ||190   // bpm
 const FC_REST=parseInt(P.get('fcrest')) ||55    // bpm
 const CLIENT=P.get('name')||''
 const VS=VMA/14, FS=FTP/200   // scale factors
+
+// ─── Session support (passed from client detail page) ───────────────────────
+const SESSION_RAW  = P.get('session')
+const SESSION_TYPE = P.get('type') || ''
+const SESSION_TITLE= (()=>{ try{return decodeURIComponent(P.get('stitle')||'')}catch{return ''} })()
+let SESSION_DATA = null
+try{ if(SESSION_RAW) SESSION_DATA = JSON.parse(SESSION_RAW) }catch(e){}
+
+const ZVMA={Z1:[.55,.65],Z2:[.65,.75],Z3:[.75,.85],Z4:[.85,.92],Z5:[.95,1.05]}
+const ZFTP={Z1:[.45,.55],Z2:[.55,.75],Z3:[.75,.90],Z4:[.90,1.00],Z5:[1.00,1.15]}
+function zSp(z){const[lo,hi]=ZVMA[z]||[.65,.75];return{sl:+(VMA*lo).toFixed(1),sh:+(VMA*hi).toFixed(1)}}
+function zPw(z){const[lo,hi]=ZFTP[z]||[.55,.75];const m=(lo+hi)/2;return{pw:Math.round(FTP*m),pp:Math.round(m*100)}}
+
+function buildSteps(data){
+  if(!data)return null
+  const steps=[]
+  if(+data.warmup?.duration_min>0){
+    const z=data.warmup.zone||'Z2'
+    steps.push({n:'Échauffement',dn:'Échauffement',dt:'time',d:Math.round(+data.warmup.duration_min*60),z,...zSp(z),...zPw(z)})
+  }
+  const main=data.main||{}
+  if(main.mode==='intervals'&&main.intervals?.length){
+    for(const iv of main.intervals){
+      const reps=Math.max(1,parseInt(iv.reps)||1),ez=iv.zone||'Z4',rz='Z1'
+      for(let i=0;i<reps;i++){
+        const ef={z:ez,...zSp(ez),...zPw(ez)}
+        if(iv.effort_mode==='distance'){const d=parseInt(iv.distance_m)||400;ef.n=`${d}m`;ef.dn=`${d}m (${i+1}/${reps})`;ef.dt='dist';ef.d=d}
+        else{const d=parseInt(iv.duration_sec)||60;ef.n=`${d}s`;ef.dn=`${d}s (${i+1}/${reps})`;ef.dt='time';ef.d=d}
+        steps.push(ef)
+        const hasRec=iv.recovery_mode==='distance'?parseInt(iv.recovery_dist_m)>0:parseInt(iv.recovery_sec)>0
+        if(hasRec){
+          const rc={z:rz,...zSp(rz),...zPw(rz)}
+          if(iv.recovery_mode==='distance'){const d=parseInt(iv.recovery_dist_m)||200;rc.n=`Récup ${d}m`;rc.dn=`Récup (${i+1}/${reps})`;rc.dt='dist';rc.d=d}
+          else{const d=parseInt(iv.recovery_sec)||60;rc.n=`Récup ${d}s`;rc.dn=`Récup (${i+1}/${reps})`;rc.dt='time';rc.d=d}
+          steps.push(rc)
+        }
+      }
+    }
+  }else if(main.mode==='continuous'&&+main.duration_min>0){
+    const z=main.zone||'Z3'
+    steps.push({n:'Séance continue',dn:'Séance continue',dt:'time',d:Math.round(+main.duration_min*60),z,...zSp(z),...zPw(z)})
+  }
+  if(+data.cooldown?.duration_min>0){
+    const z=data.cooldown.zone||'Z1'
+    steps.push({n:'Retour calme',dn:'Retour calme',dt:'time',d:Math.round(+data.cooldown.duration_min*60),z,...zSp(z),...zPw(z)})
+  }
+  return steps.length?steps:null
+}
+
+function renderOv(){
+  const wov=document.getElementById('wov'),rows=document.getElementById('wov-rows'),tot=document.getElementById('wov-total')
+  if(!wov||!SESSION_DATA)return
+  const sd=SESSION_DATA,items=[]
+  if(+sd.warmup?.duration_min>0)items.push({l:'Échauffement',i:`${sd.warmup.duration_min}min`,z:sd.warmup.zone||'Z2'})
+  const main=sd.main||{}
+  if(main.mode==='intervals'&&main.intervals?.length){
+    for(const iv of main.intervals){
+      const r=parseInt(iv.reps)||1
+      const ef=iv.effort_mode==='distance'?`${iv.distance_m}m`:`${iv.duration_sec}s`
+      const rc=iv.recovery_mode==='distance'?(parseInt(iv.recovery_dist_m)>0?` + récup ${iv.recovery_dist_m}m`:''):(parseInt(iv.recovery_sec)>0?` + récup ${iv.recovery_sec}s`:'')
+      items.push({l:`${r>1?r+'×':''}${ef}${rc}`,i:'',z:iv.zone||'Z4'})
+    }
+  }else if(main.mode==='continuous'&&+main.duration_min>0){
+    items.push({l:'Continu',i:`${main.duration_min}min`,z:main.zone||'Z3'})
+  }
+  if(+sd.cooldown?.duration_min>0)items.push({l:'Retour calme',i:`${sd.cooldown.duration_min}min`,z:sd.cooldown.zone||'Z1'})
+  const ss=buildSteps(sd),totalSec=ss?ss.reduce((a,s)=>a+estDur(s),0):0
+  rows.innerHTML=items.map(r=>{const zc=ZC[r.z]||'#6b7280';return`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a1a1a"><div style="width:3px;height:16px;border-radius:2px;background:${zc};flex-shrink:0"></div><span style="font-size:.68rem;color:#9ca3af;flex:1">${r.l}</span><span style="font-size:.62rem;color:#4b5563">${r.i}</span><span style="font-size:.62rem;font-weight:800;color:${zc};min-width:20px;text-align:right">${r.z}</span></div>`}).join('')
+  if(totalSec>0)tot.textContent=`Durée estimée : ~${Math.round(totalSec/60)}min`
+  wov.style.display='block'
+}
 
 function s1(v){return+( v*VS).toFixed(1)}
 function w1(v){return Math.round(v*FS)}
@@ -437,7 +514,8 @@ function rd(){
 function setDev(d){
   dev=d
   document.querySelectorAll('.dp').forEach((b,i)=>b.classList.toggle('on',['garmin','wahoo','zwift'][i]===d))
-  initSim(d==='garmin'?RUN:BIKE)
+  const ss=SESSION_DATA?buildSteps(SESSION_DATA):null
+  initSim(ss||(d==='garmin'||d==='wahoo'?RUN:BIKE))
 }
 
 document.addEventListener('keydown',e=>{
@@ -515,21 +593,36 @@ document.addEventListener('keydown',e=>{
   })
 })()
 
-// update subtitle with client data
+// update subtitle
 ;(()=>{
   const el=document.getElementById('subtitle')
   if(el){
     const parts=[]
-    if(CLIENT) parts.push(CLIENT)
+    if(SESSION_TITLE) parts.push(SESSION_TITLE)
+    else if(CLIENT) parts.push(CLIENT)
     parts.push(`VMA ${VMA} km/h`)
     parts.push(`FTP ${FTP} W`)
     parts.push(`FC max ${FC_MAX} bpm`)
     el.textContent=parts.join(' · ')
-    if(CLIENT) el.style.color='#39E229'
+    if(SESSION_TITLE||CLIENT) el.style.color='#39E229'
   }
 })()
 
-initSim(RUN)
+// init with session or default demo
+;(()=>{
+  const ss=SESSION_DATA?buildSteps(SESSION_DATA):null
+  const isCyc=SESSION_TYPE==='cycling'||SESSION_TYPE==='home_trainer'
+  if(ss){
+    if(isCyc){
+      dev='zwift'
+      document.querySelectorAll('.dp').forEach((b,i)=>b.classList.toggle('on',['garmin','wahoo','zwift'][i]==='zwift'))
+    }
+    renderOv()
+    initSim(ss)
+  }else{
+    initSim(RUN)
+  }
+})()
 </script>
 </body>
 </html>
