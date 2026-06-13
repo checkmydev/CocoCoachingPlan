@@ -155,14 +155,19 @@ MINUTES WATTS
 export async function downloadFile(content, filename) {
   const blob = new Blob([content], { type: 'application/octet-stream' })
 
-  // On mobile, use Web Share API so the native share sheet opens
+  // On mobile, try Web Share API for native share sheet
   if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename)] })) {
-    const file = new File([blob], filename, { type: 'application/octet-stream' })
-    await navigator.share({ files: [file], title: filename })
-    return
+    try {
+      const file = new File([blob], filename, { type: 'application/octet-stream' })
+      await navigator.share({ files: [file], title: filename })
+      return
+    } catch (e) {
+      if (e.name === 'AbortError') return  // user cancelled the share sheet
+      // Any other error (NotAllowedError on desktop) → fall through to download
+    }
   }
 
-  // Desktop fallback: trigger a normal download
+  // Standard download
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
