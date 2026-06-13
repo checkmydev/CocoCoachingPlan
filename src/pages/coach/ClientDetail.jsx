@@ -395,10 +395,18 @@ export default function ClientDetail() {
   const [section, setSection] = useState('calendar')
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0)
   const [generating, setGenerating] = useState(null) // cpId being generated
+  const [fcMax, setFcMax] = useState(190)
+  const [fcRest, setFcRest] = useState(55)
+  const [savingPhysio, setSavingPhysio] = useState(false)
+
+  useEffect(() => { loadAll() }, [id])
 
   useEffect(() => {
-    loadAll()
-  }, [id])
+    if (clientProfile) {
+      setFcMax(clientProfile.fc_max ?? 190)
+      setFcRest(clientProfile.fc_repos ?? 55)
+    }
+  }, [clientProfile])
 
   async function loadAll() {
     const [cRes, cpRes, logsRes, ciRes, extRes] = await Promise.all([
@@ -440,6 +448,13 @@ export default function ClientDetail() {
     setSavingNotes(true)
     await supabase.from('profiles').update({ coach_notes: notes }).eq('id', id)
     setSavingNotes(false)
+  }
+
+  async function savePhysio() {
+    setSavingPhysio(true)
+    await supabase.from('client_profiles')
+      .upsert({ client_id: id, fc_max: parseInt(fcMax) || null, fc_repos: parseInt(fcRest) || null }, { onConflict: 'client_id' })
+    setSavingPhysio(false)
   }
 
   async function generateCalendarFromProgram(cp) {
@@ -506,6 +521,7 @@ export default function ClientDetail() {
     { key: 'programs',  label: '📋 Séances' },
     { key: 'notes',     label: '📝 Notes' },
     { key: 'history',   label: '📊 Historique' },
+    { key: 'montre',    label: '⌚ Montre' },
   ]
 
   return (
@@ -749,6 +765,72 @@ export default function ClientDetail() {
           </div>
         </div>
       )}
+
+      {/* ── Montre section ── */}
+      {section === 'montre' && (() => {
+        const vma    = clientProfile?.vma_kmh   ?? 14
+        const ftp    = clientProfile?.ftp_watts ?? 200
+        const name   = encodeURIComponent(client?.name ?? '')
+        const src    = `${import.meta.env.BASE_URL}watch-exports/emulator.html?vma=${vma}&ftp=${ftp}&fcmax=${fcMax}&fcrest=${fcRest}&name=${name}`
+        const missingVma = !clientProfile?.vma_kmh
+        const missingFtp = !clientProfile?.ftp_watts
+
+        return (
+          <div className="space-y-4">
+            {/* Physio data card */}
+            <div className="bg-white rounded-xl border shadow-sm p-5">
+              <h2 className="font-semibold mb-4">Données physiologiques</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">VMA</p>
+                  <p className={`text-lg font-bold ${missingVma ? 'text-gray-300' : 'text-blue-600'}`}>
+                    {missingVma ? '—' : `${vma} km/h`}
+                  </p>
+                  {missingVma && <p className="text-xs text-orange-400 mt-0.5">Non renseigné</p>}
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">FTP</p>
+                  <p className={`text-lg font-bold ${missingFtp ? 'text-gray-300' : 'text-purple-600'}`}>
+                    {missingFtp ? '—' : `${ftp} W`}
+                  </p>
+                  {missingFtp && <p className="text-xs text-orange-400 mt-0.5">Non renseigné</p>}
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">FC max (bpm)</label>
+                  <input type="number" value={fcMax} onChange={e => setFcMax(e.target.value)}
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm font-bold text-red-600 focus:outline-none focus:ring-2 focus:ring-green-400" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">FC repos (bpm)</label>
+                  <input type="number" value={fcRest} onChange={e => setFcRest(e.target.value)}
+                    className="w-full border rounded-lg px-2 py-1.5 text-sm font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-green-400" />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mt-3">
+                <button onClick={savePhysio} disabled={savingPhysio}
+                  className="text-sm font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                  style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
+                  {savingPhysio ? 'Sauvegarde...' : 'Sauvegarder FC'}
+                </button>
+                <a href={src} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+                  Plein écran ↗
+                </a>
+              </div>
+            </div>
+
+            {/* Emulator iframe */}
+            <div className="rounded-xl overflow-hidden border shadow-sm" style={{ height: 640, background: '#0a0a0a' }}>
+              <iframe
+                key={`${vma}-${ftp}-${fcMax}-${fcRest}`}
+                src={src}
+                title="Watch Emulator"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
