@@ -4,6 +4,16 @@
 
 function kmhToMs(kmh) { return (kmh / 3.6).toFixed(4) }
 
+// Garmin TCX name fields must be ASCII-only (max 15 chars for Step names)
+function tcxName(str, maxLen = 15) {
+  return (str || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip diacritics (à→a, é→e…)
+    .replace(/[^\x20-\x7E]/g, '')                    // remove remaining non-ASCII
+    .replace(/[<>&"]/g, ' ')                          // escape XML special chars
+    .trim()
+    .slice(0, maxLen)
+}
+
 const TCX_HEADER = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">`
 
@@ -26,7 +36,7 @@ function tcxSpeedStep(id, name, durationType, durationValue, zone, vmaKmh) {
     : `<Duration xsi:type="Time_t"><Seconds>${durationValue}</Seconds></Duration>`
   return `      <Step xsi:type="Step_t">
         <StepId>${id}</StepId>
-        <Name>${name.slice(0, 15)}</Name>
+        <Name>${tcxName(name)}</Name>
         ${dur}
         <Intensity>Active</Intensity>
         <Target xsi:type="Speed_t">
@@ -102,7 +112,7 @@ export function generateRunTCX(clientName, vmaKmh) {
 export function generateSessionTCX(sessionTitle, sessionData, vmaKmh) {
   const vma = vmaKmh || 14
   const sd = sessionData || {}
-  const name = (sessionTitle || 'Seance course').replace(/[<>&"]/g, ' ').slice(0, 15)
+  const name = tcxName(sessionTitle || 'Seance course', 50)
 
   let id = 1
   const steps = []
@@ -129,7 +139,7 @@ export function generateSessionTCX(sessionTitle, sessionData, vmaKmh) {
         <Repetitions>${itv.reps || 1}</Repetitions>
         <Child xsi:type="Step_t">
           <StepId>${wId}</StepId>
-          <Name>${(itv.zone || 'Effort').slice(0, 15)}</Name>
+          <Name>${tcxName(itv.zone || 'Effort')}</Name>
           ${workDur}
           <Intensity>Active</Intensity>
           <Target xsi:type="Speed_t">
