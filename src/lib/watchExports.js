@@ -152,8 +152,17 @@ MINUTES WATTS
 [END COURSE DATA]`
 }
 
-export function downloadFile(content, filename) {
+export async function downloadFile(content, filename) {
   const blob = new Blob([content], { type: 'application/octet-stream' })
+
+  // On mobile, use Web Share API so the native share sheet opens
+  if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename)] })) {
+    const file = new File([blob], filename, { type: 'application/octet-stream' })
+    await navigator.share({ files: [file], title: filename })
+    return
+  }
+
+  // Desktop fallback: trigger a normal download
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
