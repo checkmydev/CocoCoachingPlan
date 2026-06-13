@@ -12,6 +12,7 @@ import { usePrograms } from '../../hooks/usePrograms'
 import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import SessionBuilder from '../../components/coach/SessionBuilder'
+import { generateRunTCX, generateBikeZWO, generateBikeMRC, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 const DAYS_HEADER = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
@@ -817,6 +818,69 @@ export default function ClientDetail() {
                   Plein écran ↗
                 </a>
               </div>
+            </div>
+
+            {/* Export buttons */}
+            <div className="bg-white rounded-xl border shadow-sm p-4">
+              <h2 className="text-sm font-semibold mb-3 text-gray-700">Exporter la séance vers une montre</h2>
+              <div className="flex flex-wrap gap-2">
+                {clientProfile?.vma_kmh ? (
+                  <button
+                    onClick={() => downloadFile(
+                      generateRunTCX(client?.name, clientProfile.vma_kmh),
+                      `moovlab_course_vma_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.tcx`
+                    )}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    <span>⬇</span>
+                    <span>Garmin / Polar / Suunto</span>
+                    <span className="text-xs text-gray-400 font-normal">Course .tcx</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-orange-400 self-center">VMA requise pour export course</span>
+                )}
+
+                {clientProfile?.ftp_watts ? (
+                  <>
+                    <button
+                      onClick={() => downloadFile(
+                        generateBikeZWO(client?.name),
+                        `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.zwo`
+                      )}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      <span>⬇</span>
+                      <span>Zwift</span>
+                      <span className="text-xs text-gray-400 font-normal">Vélo .zwo</span>
+                    </button>
+                    <button
+                      onClick={() => downloadFile(
+                        generateBikeMRC(client?.name, clientProfile.ftp_watts),
+                        `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.mrc`
+                      )}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      <span>⬇</span>
+                      <span>Wahoo / TrainerRoad</span>
+                      <span className="text-xs text-gray-400 font-normal">Vélo .mrc — {clientProfile.ftp_watts}W</span>
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-orange-400 self-center">FTP requise pour export vélo</span>
+                )}
+
+                <a
+                  href="https://connect.garmin.com/modern/import-data"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-100 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                >
+                  ↗ Importer sur Garmin Connect
+                </a>
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                Télécharge le fichier → glisse-le dans Garmin Connect / Zwift / Wahoo app → synchronise sur la montre
+              </p>
             </div>
 
             {/* Emulator iframe */}
