@@ -405,6 +405,9 @@ export default function ClientDetail() {
   const [savingPhysio, setSavingPhysio] = useState(false)
   const [montreSessions, setMontreSessions] = useState([])
   const [montreSessionId, setMontreSessionId] = useState(null)
+  const [montreDetailOpen, setMontreDetailOpen] = useState(false)
+  const [montrePhysioOpen, setMontrePhysioOpen] = useState(false)
+  const [montreExportOpen, setMontreExportOpen] = useState(false)
 
   useEffect(() => { loadAll() }, [id])
 
@@ -856,50 +859,61 @@ export default function ClientDetail() {
               const main= sd.main    || {}
               const cdn = sd.cooldown|| {}
               return (
-                <div className="bg-white rounded-xl border shadow-sm p-5">
-                  <h2 className="font-semibold mb-3">Détail — {selectedSession.title}</h2>
-                  <div className="space-y-2">
-                    {+wup.duration_min > 0 && (
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[wup.zone] || '#34D399' }} />
-                        <span className="text-gray-600 flex-1">Échauffement</span>
-                        <span className="text-gray-400 text-xs">{wup.duration_min}min</span>
-                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[wup.zone] || '#34D399' }}>{wup.zone || 'Z2'}</span>
-                      </div>
-                    )}
-                    {main.mode === 'intervals' && (main.intervals || []).map((iv, i) => (
-                      <div key={i} className="flex items-center gap-3 text-sm">
-                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[iv.zone] || '#F87171' }} />
-                        <span className="text-gray-600 flex-1 truncate">
-                          {parseInt(iv.reps) > 1 ? `${iv.reps}×` : ''}{fmtEffort(iv)}{fmtRecov(iv)}
-                        </span>
-                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[iv.zone] || '#F87171' }}>{iv.zone || 'Z4'}</span>
-                      </div>
-                    ))}
-                    {main.mode === 'continuous' && +main.duration_min > 0 && (
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[main.zone] || '#FBBF24' }} />
-                        <span className="text-gray-600 flex-1">Continu</span>
-                        <span className="text-gray-400 text-xs">{main.duration_min}min</span>
-                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[main.zone] || '#FBBF24' }}>{main.zone || 'Z3'}</span>
-                      </div>
-                    )}
-                    {+cdn.duration_min > 0 && (
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[cdn.zone] || '#60A5FA' }} />
-                        <span className="text-gray-600 flex-1">Retour au calme</span>
-                        <span className="text-gray-400 text-xs">{cdn.duration_min}min</span>
-                        <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[cdn.zone] || '#60A5FA' }}>{cdn.zone || 'Z1'}</span>
-                      </div>
-                    )}
-                  </div>
+                <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                  <button onClick={() => setMontreDetailOpen(v => !v)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors">
+                    <span className="font-semibold text-sm">📋 {selectedSession.title}</span>
+                    <span style={{ display:'inline-block', transition:'transform .15s', transform: montreDetailOpen ? 'rotate(180deg)' : 'none', color:'#9ca3af', fontSize:'1.1rem' }}>▾</span>
+                  </button>
+                  {montreDetailOpen && (
+                    <div className="px-5 pb-5 pt-4 border-t border-gray-100 space-y-2">
+                      {+wup.duration_min > 0 && (
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[wup.zone] || '#34D399' }} />
+                          <span className="text-gray-600 flex-1">Échauffement</span>
+                          <span className="text-gray-400 text-xs">{wup.duration_min}min</span>
+                          <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[wup.zone] || '#34D399' }}>{wup.zone || 'Z2'}</span>
+                        </div>
+                      )}
+                      {main.mode === 'intervals' && (main.intervals || []).map((iv, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm">
+                          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[iv.zone] || '#F87171' }} />
+                          <span className="text-gray-600 flex-1 truncate">
+                            {parseInt(iv.reps) > 1 ? `${iv.reps}×` : ''}{fmtEffort(iv)}{fmtRecov(iv)}
+                          </span>
+                          <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[iv.zone] || '#F87171' }}>{iv.zone || 'Z4'}</span>
+                        </div>
+                      ))}
+                      {main.mode === 'continuous' && +main.duration_min > 0 && (
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[main.zone] || '#FBBF24' }} />
+                          <span className="text-gray-600 flex-1">Continu</span>
+                          <span className="text-gray-400 text-xs">{main.duration_min}min</span>
+                          <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[main.zone] || '#FBBF24' }}>{main.zone || 'Z3'}</span>
+                        </div>
+                      )}
+                      {+cdn.duration_min > 0 && (
+                        <div className="flex items-center gap-3 text-sm">
+                          <div className="w-1 h-5 rounded-full shrink-0" style={{ backgroundColor: ZONE_COLORS[cdn.zone] || '#60A5FA' }} />
+                          <span className="text-gray-600 flex-1">Retour au calme</span>
+                          <span className="text-gray-400 text-xs">{cdn.duration_min}min</span>
+                          <span className="text-xs font-bold w-7 text-right" style={{ color: ZONE_COLORS[cdn.zone] || '#60A5FA' }}>{cdn.zone || 'Z1'}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })()}
 
             {/* ── Physio data card ── */}
-            <div className="bg-white rounded-xl border shadow-sm p-5">
-              <h2 className="font-semibold mb-4">Données physiologiques</h2>
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <button onClick={() => setMontrePhysioOpen(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors">
+                <span className="font-semibold text-sm">⚙ Données physiologiques</span>
+                <span style={{ display:'inline-block', transition:'transform .15s', transform: montrePhysioOpen ? 'rotate(180deg)' : 'none', color:'#9ca3af', fontSize:'1.1rem' }}>▾</span>
+              </button>
+              {montrePhysioOpen && <div className="px-5 pb-5 pt-4 border-t border-gray-100">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-gray-400 mb-1">VMA</p>
@@ -937,11 +951,17 @@ export default function ClientDetail() {
                   Plein écran ↗
                 </a>
               </div>
+              </div>}
             </div>
 
             {/* ── Export buttons ── */}
-            <div className="bg-white rounded-xl border shadow-sm p-4">
-              <h2 className="text-sm font-semibold mb-3 text-gray-700">Exporter la séance vers une montre</h2>
+            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+              <button onClick={() => setMontreExportOpen(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-gray-50 transition-colors">
+                <span className="font-semibold text-sm">⬇ Exporter vers la montre</span>
+                <span style={{ display:'inline-block', transition:'transform .15s', transform: montreExportOpen ? 'rotate(180deg)' : 'none', color:'#9ca3af', fontSize:'1.1rem' }}>▾</span>
+              </button>
+              {montreExportOpen && <div className="px-4 pb-4 pt-4 border-t border-gray-100">
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => downloadFile(
@@ -984,6 +1004,7 @@ export default function ClientDetail() {
               <p className="text-xs text-gray-400 mt-2">
                 Télécharge le fichier → glisse-le dans Garmin Connect / Zwift / Wahoo app → synchronise sur la montre
               </p>
+              </div>}
             </div>
 
             {/* ── Emulator iframe ── */}

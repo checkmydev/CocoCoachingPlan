@@ -4,11 +4,10 @@ import { useAuth } from '../contexts/AuthContext'
 import Logo from './Logo'
 
 const NAV = [
-  { to: '/coach/dashboard',      label: 'Tableau de bord', short: 'Accueil',    icon: '📊' },
-  { to: '/coach/exercises',      label: 'Exercices',       short: 'Exercices',  icon: '🏋️' },
-  { to: '/coach/programs',       label: 'Séances',         short: 'Séances',    icon: '📋' },
-  { to: '/coach/clients',        label: 'Clients',         short: 'Clients',    icon: '👥' },
-  { to: '/coach/watch-emulator', label: 'Watch Emulator',  short: 'Montre',     icon: '⌚' },
+  { to: '/coach/dashboard',  label: 'Tableau de bord', short: 'Accueil',   icon: '📊' },
+  { to: '/coach/exercises',  label: 'Exercices',       short: 'Exercices', icon: '🏋️' },
+  { to: '/coach/programs',   label: 'Séances',         short: 'Séances',   icon: '📋' },
+  { to: '/coach/clients',    label: 'Clients',         short: 'Clients',   icon: '👥' },
 ]
 
 export default function Layout({ children }) {
