@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
+import { generateSessionTCX, generateSessionZWO, generateSessionMRC, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 
@@ -835,6 +836,40 @@ export default function SessionBuilder({ day, session, clientId, coachId, client
                 </span>
               </label>
             )}
+            {/* Export to watch */}
+            {(sessionType === 'running' || sessionType === 'trail' || sessionType === 'cycling' || sessionType === 'home_trainer') && (
+              <div className="flex gap-2 px-5 py-2 border-b border-dashed border-gray-200 bg-gray-50 flex-wrap">
+                {(sessionType === 'running' || sessionType === 'trail') && (
+                  <button type="button"
+                    onClick={() => downloadFile(
+                      generateSessionTCX(title || SESSION_TYPES[sessionType]?.label, sessionData, clientVma || 14),
+                      `moovlab_${(title || 'seance').replace(/\s+/g, '_').toLowerCase()}.tcx`
+                    )}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                    ⌚ Garmin / Polar <span className="text-gray-400">.tcx</span>
+                  </button>
+                )}
+                {(sessionType === 'cycling' || sessionType === 'home_trainer') && (<>
+                  <button type="button"
+                    onClick={() => downloadFile(
+                      generateSessionZWO(title || SESSION_TYPES[sessionType]?.label, sessionData, clientFtp || 200),
+                      `moovlab_${(title || 'seance').replace(/\s+/g, '_').toLowerCase()}.zwo`
+                    )}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 hover:bg-purple-50 hover:border-purple-300 transition-colors">
+                    ⌚ Zwift <span className="text-gray-400">.zwo</span>
+                  </button>
+                  <button type="button"
+                    onClick={() => downloadFile(
+                      generateSessionMRC(title || SESSION_TYPES[sessionType]?.label, sessionData, clientFtp || 200),
+                      `moovlab_${(title || 'seance').replace(/\s+/g, '_').toLowerCase()}.mrc`
+                    )}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 hover:bg-orange-50 hover:border-orange-300 transition-colors">
+                    ⌚ Wahoo <span className="text-gray-400">.mrc</span>
+                  </button>
+                </>)}
+              </div>
+            )}
+
             <div className="flex gap-2 px-5 py-4">
               {isEdit && (
                 <button type="button" onClick={handleDelete} disabled={deleting}
