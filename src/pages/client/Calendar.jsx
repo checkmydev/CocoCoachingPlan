@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
 import VideoPlayer from '../../components/VideoPlayer'
+import { generateSessionTCX, generateSessionZWO, generateSessionMRC, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 
@@ -95,7 +96,7 @@ function ExerciseCard({ ex, index }) {
   )
 }
 
-function SessionModal({ session, onClose }) {
+function SessionModal({ session, onClose, clientVma = 14, clientFtp = 200 }) {
   const [enriched, setEnriched] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -325,7 +326,38 @@ function SessionModal({ session, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t shrink-0">
+        <div className="px-5 py-4 border-t shrink-0 space-y-2">
+          {/* Watch export */}
+          {(session.session_type === 'running' || session.session_type === 'trail') && (
+            <button
+              onClick={() => downloadFile(
+                generateSessionTCX(session.title, sd, clientVma),
+                `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.tcx`
+              )}
+              className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-blue-50 flex items-center justify-center gap-2 transition-colors">
+              ⌚ Garmin / Polar / Suunto <span className="text-gray-400 text-xs">.tcx</span>
+            </button>
+          )}
+          {(session.session_type === 'cycling' || session.session_type === 'home_trainer') && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => downloadFile(
+                  generateSessionZWO(session.title, sd, clientFtp),
+                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.zwo`
+                )}
+                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-purple-50 flex items-center justify-center gap-1 transition-colors">
+                ⌚ Zwift <span className="text-gray-400 text-xs">.zwo</span>
+              </button>
+              <button
+                onClick={() => downloadFile(
+                  generateSessionMRC(session.title, sd, clientFtp),
+                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.mrc`
+                )}
+                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-orange-50 flex items-center justify-center gap-1 transition-colors">
+                ⌚ Wahoo <span className="text-gray-400 text-xs">.mrc</span>
+              </button>
+            </div>
+          )}
           <button onClick={onClose}
             className="w-full rounded-xl py-3 text-sm font-bold"
             style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
@@ -506,7 +538,12 @@ export default function Calendar() {
       )}
 
       {selectedSession && (
-        <SessionModal session={selectedSession} onClose={() => setSelectedSession(null)} />
+        <SessionModal
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+          clientVma={clientProfile?.vma_kmh ?? 14}
+          clientFtp={clientProfile?.ftp_watts ?? 200}
+        />
       )}
     </div>
   )
