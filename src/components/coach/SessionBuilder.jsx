@@ -65,7 +65,7 @@ function CardioBuilder({ type, vma, ftp, value, onChange }) {
   const unit = isPower ? 'W' : 'km/h'
 
   function newInterval() {
-    return { id: Date.now(), reps: 1, distance_m: 400, duration_min: '', zone: 'Z4', vma_pct: 100, recovery_type: 'jog', recovery_min: 1.5, recovery_dist_m: '' }
+    return { id: Date.now(), reps: '1', effort_mode: 'distance', distance_m: '400', duration_sec: '', zone: 'Z4', vma_pct: 100, recovery_mode: 'time', recovery_sec: '90', recovery_dist_m: '' }
   }
 
   function updatePart(part, key, val) {
@@ -188,26 +188,43 @@ function CardioBuilder({ type, vma, ftp, value, onChange }) {
                       className="text-xs text-gray-400 hover:text-red-500 px-1">✕</button>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="grid grid-cols-2 gap-2 mb-2">
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Répétitions</label>
                       <input type="number" min={1} max={50} value={interval.reps}
-                        onChange={e => updateInterval(interval.id, 'reps', parseInt(e.target.value))}
+                        onChange={e => updateInterval(interval.id, 'reps', e.target.value)}
                         className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-300" />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Distance (m)</label>
-                      <input type="number" min={0} step={50} value={interval.distance_m ?? ''}
-                        placeholder="400"
-                        onChange={e => updateInterval(interval.id, 'distance_m', e.target.value)}
-                        className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-300" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">OU Durée (sec)</label>
-                      <input type="number" min={0} step={10} value={interval.duration_sec ?? ''}
-                        placeholder="90"
-                        onChange={e => updateInterval(interval.id, 'duration_sec', e.target.value)}
-                        className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-300" />
+                      <div className="flex gap-1 mb-1">
+                        <button type="button"
+                          onClick={() => updateInterval(interval.id, 'effort_mode', 'distance')}
+                          className="flex-1 text-xs py-0.5 rounded-md border transition-all"
+                          style={(interval.effort_mode ?? 'distance') !== 'time'
+                            ? { backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff', fontWeight: 700 }
+                            : { borderColor: '#e5e7eb', color: '#6b7280' }}>
+                          Distance (m)
+                        </button>
+                        <button type="button"
+                          onClick={() => updateInterval(interval.id, 'effort_mode', 'time')}
+                          className="flex-1 text-xs py-0.5 rounded-md border transition-all"
+                          style={(interval.effort_mode ?? 'distance') === 'time'
+                            ? { backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff', fontWeight: 700 }
+                            : { borderColor: '#e5e7eb', color: '#6b7280' }}>
+                          Durée (sec)
+                        </button>
+                      </div>
+                      {(interval.effort_mode ?? 'distance') === 'time' ? (
+                        <input type="number" min={0} step={10} value={interval.duration_sec ?? ''}
+                          placeholder="90"
+                          onChange={e => updateInterval(interval.id, 'duration_sec', e.target.value)}
+                          className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-300" />
+                      ) : (
+                        <input type="number" min={0} step={50} value={interval.distance_m ?? ''}
+                          placeholder="400"
+                          onChange={e => updateInterval(interval.id, 'distance_m', e.target.value)}
+                          className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-300" />
+                      )}
                     </div>
                   </div>
 
@@ -231,31 +248,36 @@ function CardioBuilder({ type, vma, ftp, value, onChange }) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Récupération</label>
-                      <select value={interval.recovery_type}
-                        onChange={e => updateInterval(interval.id, 'recovery_type', e.target.value)}
-                        className="w-full border rounded-lg px-2 py-1.5 text-xs focus:outline-none">
-                        <option value="rest">Repos</option>
-                        <option value="jog">Trot</option>
-                        <option value="walk">Marche</option>
-                      </select>
+                  <div className="mt-2">
+                    <div className="flex gap-1 mb-1">
+                      <button type="button"
+                        onClick={() => updateInterval(interval.id, 'recovery_mode', 'time')}
+                        className="flex-1 text-xs py-0.5 rounded-md border transition-all"
+                        style={(interval.recovery_mode ?? 'time') === 'time'
+                          ? { backgroundColor: '#6b7280', borderColor: '#6b7280', color: '#fff', fontWeight: 700 }
+                          : { borderColor: '#e5e7eb', color: '#6b7280' }}>
+                        Récup durée (sec)
+                      </button>
+                      <button type="button"
+                        onClick={() => updateInterval(interval.id, 'recovery_mode', 'distance')}
+                        className="flex-1 text-xs py-0.5 rounded-md border transition-all"
+                        style={(interval.recovery_mode ?? 'time') === 'distance'
+                          ? { backgroundColor: '#6b7280', borderColor: '#6b7280', color: '#fff', fontWeight: 700 }
+                          : { borderColor: '#e5e7eb', color: '#6b7280' }}>
+                        Récup distance (m)
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">Durée récup (min)</label>
-                      <input type="number" min={0} step={0.5} value={interval.recovery_min ?? ''}
-                        placeholder="1.5"
-                        onChange={e => updateInterval(interval.id, 'recovery_min', e.target.value)}
-                        className="w-full border rounded-lg px-2 py-1.5 text-xs focus:outline-none" />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-500 mb-1">OU Dist. récup (m)</label>
+                    {(interval.recovery_mode ?? 'time') === 'distance' ? (
                       <input type="number" min={0} step={50} value={interval.recovery_dist_m ?? ''}
                         placeholder="200"
                         onChange={e => updateInterval(interval.id, 'recovery_dist_m', e.target.value)}
                         className="w-full border rounded-lg px-2 py-1.5 text-xs focus:outline-none" />
-                    </div>
+                    ) : (
+                      <input type="number" min={0} step={10} value={interval.recovery_sec ?? ''}
+                        placeholder="90"
+                        onChange={e => updateInterval(interval.id, 'recovery_sec', e.target.value)}
+                        className="w-full border rounded-lg px-2 py-1.5 text-xs focus:outline-none" />
+                    )}
                   </div>
                 </div>
               ))}
@@ -479,8 +501,11 @@ function calcDuration(type, data) {
     total += parseInt(data.main.duration_min ?? 0)
   } else if (data.main?.intervals?.length) {
     data.main.intervals.forEach(i => {
-      const work = i.duration_sec ? (parseInt(i.duration_sec) / 60) : (i.distance_m ? i.distance_m / (3.5 * 1000 / 60) : 5)
-      const rec = parseFloat(i.recovery_min ?? 1.5)
+      const work = i.duration_sec ? (parseInt(i.duration_sec) / 60) : (i.distance_m ? i.distance_m / (3.5 * 1000 / 60) : 0)
+      const recSec = i.recovery_sec ?? (i.recovery_min ? i.recovery_min * 60 : 90)
+      const rec = i.recovery_mode === 'distance'
+        ? (i.recovery_dist_m ? i.recovery_dist_m / (3.5 * 1000 / 60) : 1)
+        : parseInt(recSec) / 60
       total += (parseInt(i.reps ?? 1)) * (work + rec)
     })
   }
@@ -492,7 +517,7 @@ function calcDuration(type, data) {
       total += (parseInt(e.sets ?? 3)) * (setTime + restTime)
     })
   }
-  return Math.max(15, Math.round(total)) || 60
+  return Math.max(1, Math.round(total)) || 0
 }
 
 // ─── Predefined session picker ────────────────────────────────────────────────

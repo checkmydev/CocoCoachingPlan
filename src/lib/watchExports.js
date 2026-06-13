@@ -116,12 +116,14 @@ export function generateSessionTCX(sessionTitle, sessionData, vmaKmh) {
       const [lo, hi] = ZONE_VMA[itv.zone] || ZONE_VMA.Z5
       const sp = (pct) => kmhToMs(vma * pct)
       const repId = id++; const wId = id++; const rId = id++
-      const workDur = itv.distance_m
+      const useDist = (itv.effort_mode ?? 'distance') !== 'time'
+      const workDur = useDist && itv.distance_m
         ? `<Duration xsi:type="Distance_t"><Meters>${itv.distance_m}</Meters></Duration>`
         : `<Duration xsi:type="Time_t"><Seconds>${itv.duration_sec || 60}</Seconds></Duration>`
-      const recDur = itv.recovery_type === 'distance' && itv.recovery_dist_m
+      const recSec = itv.recovery_sec ?? (itv.recovery_min ? itv.recovery_min * 60 : 90)
+      const recDur = itv.recovery_mode === 'distance' && itv.recovery_dist_m
         ? `<Duration xsi:type="Distance_t"><Meters>${itv.recovery_dist_m}</Meters></Duration>`
-        : `<Duration xsi:type="Time_t"><Seconds>${Math.round((itv.recovery_min || 1) * 60)}</Seconds></Duration>`
+        : `<Duration xsi:type="Time_t"><Seconds>${Math.round(recSec)}</Seconds></Duration>`
       steps.push(`      <Step xsi:type="Repeat_t">
         <StepId>${repId}</StepId>
         <Repetitions>${itv.reps || 1}</Repetitions>
@@ -183,7 +185,7 @@ export function generateSessionZWO(sessionTitle, sessionData, ftpWatts) {
       const [lo, hi] = ZONE_FTP[itv.zone] || ZONE_FTP.Z5
       const pwr = ((lo + hi) / 2).toFixed(3)
       const onSec = itv.duration_sec || 60
-      const offSec = Math.round((itv.recovery_min || 1) * 60)
+      const offSec = Math.round(itv.recovery_sec ?? (itv.recovery_min ? itv.recovery_min * 60 : 90))
       parts.push(`    <IntervalsT Repeat="${itv.reps || 1}" OnDuration="${onSec}" OffDuration="${offSec}" OnPower="${pwr}" OffPower="0.500" pace="0"/>`)
     }
   } else if (sd.main) {
@@ -235,7 +237,7 @@ export function generateSessionMRC(sessionTitle, sessionData, ftpWatts) {
     for (const itv of sd.main.intervals) {
       const [lo, hi] = ZONE_FTP[itv.zone] || ZONE_FTP.Z5
       const workMins = (itv.duration_sec || 60) / 60
-      const recMins = itv.recovery_min || 1
+      const recMins = (itv.recovery_sec ?? (itv.recovery_min ? itv.recovery_min * 60 : 90)) / 60
       for (let i = 0; i < (itv.reps || 1); i++) {
         seg(workMins, (lo + hi) / 2)
         seg(recMins, 0.50)
