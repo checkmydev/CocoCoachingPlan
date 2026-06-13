@@ -15,7 +15,8 @@ import SessionBuilder from '../../components/coach/SessionBuilder'
 import { generateRunTCX, generateBikeZWO, generateBikeMRC, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
-const DAYS_HEADER = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const DAYS_HEADER        = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const DAYS_HEADER_SHORT  = ['L',   'M',   'M',   'J',   'V',   'S',   'D'  ]
 
 function fmtDuration(minutes) {
   if (!minutes) return ''
@@ -241,7 +242,8 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
         {!copyMode ? (
           <button onClick={() => { setCopyMode(true); setCopyDone(null) }}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border-2 border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors shrink-0">
-            📋 Copier des jours
+            <span className="hidden sm:inline">📋 Copier des jours</span>
+            <span className="sm:hidden">📋</span>
           </button>
         ) : (
           <button onClick={cancelCopy}
@@ -290,14 +292,17 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
       )}
 
       {/* Calendar grid */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse min-w-[600px]">
+      <div>
+        <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b">
-              {DAYS_HEADER.map(d => (
-                <th key={d} className="px-2 py-2 text-xs font-semibold text-gray-500 text-center">{d}</th>
+              {DAYS_HEADER.map((d, i) => (
+                <th key={d} className="py-2 text-xs font-semibold text-gray-500 text-center px-0.5 sm:px-2">
+                  <span className="sm:hidden">{DAYS_HEADER_SHORT[i]}</span>
+                  <span className="hidden sm:inline">{d}</span>
+                </th>
               ))}
-              <th className="px-2 py-2 text-xs font-semibold text-gray-500 text-right w-16">Total</th>
+              <th className="hidden sm:table-cell px-2 py-2 text-xs font-semibold text-gray-500 text-right w-14">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -312,16 +317,16 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
                       onClick={() => inMonth && openAdd(day)}
                       onDragOver={e => inMonth && onCellDragOver(e, day)}
                       onDrop={e => inMonth && onCellDrop(e, day)}
-                      className={`align-top p-1 border-r last:border-r-0 transition-colors ${
+                      className={`align-top p-0.5 sm:p-1 border-r last:border-r-0 transition-colors ${
                         !inMonth ? 'bg-gray-50 cursor-default'
                         : dragOver === format(day, 'yyyy-MM-dd') && dragging ? 'bg-green-100 ring-2 ring-inset ring-green-400'
                         : copyMode && selectedDays.has(format(day, 'yyyy-MM-dd')) ? 'bg-blue-100 cursor-pointer ring-2 ring-inset ring-blue-400'
                         : copyMode ? 'cursor-pointer hover:bg-blue-50'
                         : 'cursor-pointer hover:bg-green-50'
                       }`}
-                      style={{ minHeight: 64 }}>
-                      <div className="flex flex-col gap-0.5 min-h-[56px]">
-                        <span className={`text-xs font-medium mb-0.5 inline-flex w-5 h-5 items-center justify-center rounded-full ${
+                      style={{ minHeight: 48 }}>
+                      <div className="flex flex-col gap-0.5 min-h-[44px]">
+                        <span className={`text-[10px] sm:text-xs font-medium mb-0.5 inline-flex w-4 h-4 sm:w-5 sm:h-5 items-center justify-center rounded-full ${
                           today ? 'text-white' : inMonth ? 'text-gray-700' : 'text-gray-300'
                         }`}
                           style={today ? { backgroundColor: MOOV_GREEN } : {}}>
@@ -338,13 +343,14 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
                               onDragStart={e => !s._isLog && onSessionDragStart(e, s)}
                               onDragEnd={onSessionDragEnd}
                               onClick={e => !s._isLog && openEdit(s, e)}
-                              className={`w-full text-left rounded px-1 py-0.5 text-xs font-medium truncate leading-tight transition-all ${
+                              className={`w-full text-left rounded px-0.5 sm:px-1 py-0.5 text-[10px] sm:text-xs font-medium truncate leading-tight transition-all ${
                                 isDraggingThis ? 'opacity-40 scale-95' : 'hover:opacity-80'
                               } ${!s._isLog && !copyMode ? 'cursor-grab active:cursor-grabbing' : ''}`}
                               style={{ backgroundColor: type.bg, color: type.color }}
                               title={s.title || type.label}>
-                              {type.emoji} {s.title || type.label}
-                              {s.duration_minutes ? <span className="ml-1 opacity-70">{fmtDuration(s.duration_minutes)}</span> : null}
+                              <span>{type.emoji}</span>
+                              <span className="hidden sm:inline"> {s.title || type.label}</span>
+                              {s.duration_minutes ? <span className="ml-0.5 opacity-70 hidden sm:inline">{fmtDuration(s.duration_minutes)}</span> : null}
                             </button>
                           )
                         })}
@@ -352,7 +358,7 @@ function CoachCalendar({ clientId, coachId, logs, clientVma, clientFtp, refreshK
                     </td>
                   )
                 })}
-                <td className="px-2 py-1 text-right align-top">
+                <td className="hidden sm:table-cell px-2 py-1 text-right align-top">
                   <span className="text-xs text-gray-400 font-medium">{weekTotal(week)}</span>
                 </td>
               </tr>
@@ -593,16 +599,20 @@ export default function ClientDetail() {
       </div>
 
       {/* Section nav */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 overflow-x-auto scrollbar-hide">
-        {SECTIONS.map(s => (
-          <button key={s.key} onClick={() => setSection(s.key)}
-            className="shrink-0 flex-1 min-w-fit px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
-            style={section === s.key
-              ? { backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.1)', color: '#000' }
-              : { color: '#6b7280' }}>
-            {s.label}
-          </button>
-        ))}
+      <div className="relative mb-4">
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 overflow-x-auto scrollbar-hide">
+          {SECTIONS.map(s => (
+            <button key={s.key} onClick={() => setSection(s.key)}
+              className="shrink-0 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all"
+              style={section === s.key
+                ? { backgroundColor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,.1)', color: '#000' }
+                : { color: '#6b7280' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {/* Fade hint indicating more tabs to the right */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 rounded-r-xl bg-gradient-to-l from-gray-100 to-transparent sm:hidden" />
       </div>
 
       {/* Calendar section */}
