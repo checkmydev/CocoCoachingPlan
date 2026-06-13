@@ -85,7 +85,7 @@ export default function Layout({ children }) {
         </header>
 
         <main
-          className="flex-1 bg-gray-50 overflow-y-auto pb-16 md:pb-0"
+          className="flex-1 bg-gray-50 overflow-y-auto overflow-x-hidden pb-16 md:pb-0"
           style={{ display: 'flex', flexDirection: 'column' }}
         >
           {children}

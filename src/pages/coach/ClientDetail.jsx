@@ -556,9 +556,9 @@ export default function ClientDetail() {
           <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xl font-bold shrink-0">
             {(client.name ?? client.email).charAt(0).toUpperCase()}
           </div>
-          <div>
-            <h1 className="text-xl font-bold leading-tight">{client.name || '—'}</h1>
-            <p className="text-sm text-gray-500">{client.email}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold leading-tight truncate">{client.name || '—'}</h1>
+            <p className="text-sm text-gray-500 truncate">{client.email}</p>
           </div>
         </div>
       </div>
@@ -661,15 +661,15 @@ export default function ClientDetail() {
           <div className="divide-y">
             {clientPrograms.map(cp => (
               <div key={cp.id} className="py-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-sm">{cp.program?.name}</span>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="font-medium text-sm truncate flex-1 min-w-0">{cp.program?.name}</span>
                   <select value={cp.status} onChange={e => updateProgramStatus(cp.id, e.target.value)}
                     className={`text-xs px-2 py-0.5 rounded-full border-0 ${statusColors[cp.status]}`}>
                     {Object.entries(statusLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-gray-400 shrink-0">
                     Début : {cp.start_date ? format(new Date(cp.start_date + 'T12:00:00'), 'dd/MM/yyyy') : '—'}
                   </span>
                   <button
@@ -773,12 +773,12 @@ export default function ClientDetail() {
             {logs.length === 0 ? <p className="text-sm text-gray-400">Aucune séance enregistrée.</p> : (
               <div className="divide-y">
                 {logs.slice(0, 30).map(log => (
-                  <div key={log.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{log.session?.name}</p>
+                  <div key={log.id} className="py-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{log.session?.name}</p>
                       <p className="text-xs text-gray-400">Sem. {log.session?.week} / Jour {log.session?.day}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-xs text-gray-400">{format(new Date(log.logged_at), 'dd/MM/yy HH:mm')}</p>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${log.completed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                         {log.completed ? 'Complétée' : 'Partielle'}
@@ -962,39 +962,45 @@ export default function ClientDetail() {
                 <span style={{ display:'inline-block', transition:'transform .15s', transform: montreExportOpen ? 'rotate(180deg)' : 'none', color:'#9ca3af', fontSize:'1.1rem' }}>▾</span>
               </button>
               {montreExportOpen && <div className="px-4 pb-4 pt-4 border-t border-gray-100">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
                 <button
                   onClick={() => downloadFile(
                     generateRunTCX(client?.name, vma),
                     `moovlab_course_vma_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.tcx`
                   )}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors text-left"
                 >
-                  <span>⬇</span>
-                  <span>Garmin / Polar / Suunto</span>
-                  <span className="text-xs text-gray-400 font-normal">Course .tcx — {vma} km/h{!clientProfile?.vma_kmh && ' (défaut)'}</span>
+                  <span className="shrink-0">⬇</span>
+                  <span>
+                    <span className="block">Garmin / Polar / Suunto</span>
+                    <span className="block text-xs text-gray-400 font-normal">Course .tcx — {vma} km/h{!clientProfile?.vma_kmh && ' (défaut)'}</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => downloadFile(
                     generateBikeZWO(client?.name),
                     `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.zwo`
                   )}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors text-left"
                 >
-                  <span>⬇</span>
-                  <span>Zwift</span>
-                  <span className="text-xs text-gray-400 font-normal">Vélo .zwo</span>
+                  <span className="shrink-0">⬇</span>
+                  <span>
+                    <span className="block">Zwift</span>
+                    <span className="block text-xs text-gray-400 font-normal">Vélo .zwo</span>
+                  </span>
                 </button>
                 <button
                   onClick={() => downloadFile(
                     generateBikeMRC(client?.name, ftp),
                     `moovlab_velo_zone4_${(client?.name ?? 'client').replace(/\s+/g, '_').toLowerCase()}.mrc`
                   )}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium hover:bg-gray-50 transition-colors text-left"
                 >
-                  <span>⬇</span>
-                  <span>Wahoo / TrainerRoad</span>
-                  <span className="text-xs text-gray-400 font-normal">Vélo .mrc — {ftp}W{!clientProfile?.ftp_watts && ' (défaut)'}</span>
+                  <span className="shrink-0">⬇</span>
+                  <span>
+                    <span className="block">Wahoo / TrainerRoad</span>
+                    <span className="block text-xs text-gray-400 font-normal">Vélo .mrc — {ftp}W{!clientProfile?.ftp_watts && ' (défaut)'}</span>
+                  </span>
                 </button>
                 <a href="https://connect.garmin.com/modern/import-data" target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-100 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors">
