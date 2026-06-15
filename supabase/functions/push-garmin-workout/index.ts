@@ -115,9 +115,19 @@ serve(async (req: Request) => {
       })
     }
 
-    // Lazy import — garmin-connect is a CJS default export
+    // Lazy import — resolve constructor across CJS/ESM patterns
     const mod = await import('npm:garmin-connect')
-    const GarminConnect = mod.default ?? mod.GarminConnect ?? mod
+    const GarminConnect =
+      (typeof mod?.GarminConnect === 'function' ? mod.GarminConnect : null) ??
+      (typeof mod?.default?.GarminConnect === 'function' ? mod.default.GarminConnect : null) ??
+      (typeof mod?.default === 'function' ? mod.default : null)
+
+    if (!GarminConnect) {
+      const keys = JSON.stringify({ mod: Object.keys(mod), default: mod.default ? Object.keys(mod.default) : null })
+      return new Response(JSON.stringify({ error: `garmin-connect module structure: ${keys}` }), {
+        status: 500, headers: { ...cors, 'Content-Type': 'application/json' },
+      })
+    }
 
     const gc = new GarminConnect({ domain: 'garmin.com' })
     await gc.login(garminEmail.trim(), garminPassword)
