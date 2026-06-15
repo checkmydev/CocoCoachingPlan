@@ -1,18 +1,20 @@
 // Generates downloadable workout files (TCX, ZWO, MRC) from client physiological data.
-// TCX speed values are in m/s; ZWO power is relative (%FTP, Zwift handles scaling);
+// TCX uses Garmin Connect Activities format (<Activities>/<Lap>) — importable via
+//   connect.garmin.com/modern/import-data as a running activity.
+// ZWO power is relative (%FTP, Zwift handles scaling).
 // MRC power is absolute watts (scaled to client FTP).
 
-function kmhToMs(kmh) { return (kmh / 3.6).toFixed(4) }
-
-// Garmin TCX name fields must be ASCII-only (max 15 chars for Step names)
-function tcxName(str, maxLen = 15) {
+function tcxSanitize(str, maxLen = 200) {
   return (str || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip diacritics (à→a, é→e…)
-    .replace(/[^\x20-\x7E]/g, '')                    // remove remaining non-ASCII
-    .replace(/[<>&"]/g, ' ')                          // escape XML special chars
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip diacritics
+    .replace(/[^\x20-\x7E]/g, '')                     // remove remaining non-ASCII
+    .replace(/[<>&"]/g, ' ')                           // escape XML special chars
     .trim()
     .slice(0, maxLen)
 }
+
+// Keep the old alias used in a few places below
+function tcxName(str, maxLen = 15) { return tcxSanitize(str, maxLen) }
 
 const TCX_HEADER = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">`
@@ -27,156 +29,158 @@ const ZONE_FTP = {
   Z1: [0.45, 0.55], Z2: [0.55, 0.75], Z3: [0.75, 0.90],
   Z4: [0.90, 1.00], Z5: [1.00, 1.15],
 }
-
-function tcxSpeedStep(id, name, durationType, durationValue, zone, vmaKmh) {
-  const sp = (pct) => kmhToMs(vmaKmh * pct)
-  const [lo, hi] = ZONE_VMA[zone] || ZONE_VMA.Z2
-  const dur = durationType === 'dist'
-    ? `<Duration xsi:type="Distance_t"><Meters>${durationValue}</Meters></Duration>`
-    : `<Duration xsi:type="Time_t"><Seconds>${durationValue}</Seconds></Duration>`
-  return `      <Step xsi:type="Step_t">
-        <StepId>${id}</StepId>
-        <Name>${tcxName(name)}</Name>
-        ${dur}
-        <Intensity>Active</Intensity>
-        <Target xsi:type="Speed_t">
-          <SpeedZone xsi:type="CustomSpeedZone_t">
-            <LowInMetersPerSecond>${sp(lo)}</LowInMetersPerSecond>
-            <HighInMetersPerSecond>${sp(hi)}</HighInMetersPerSecond>
-          </SpeedZone>
-        </Target>
-      </Step>`
+// Heart rate reserve (Karvonen) zone boundaries
+const ZONE_HRR = {
+  Z1: [0.50, 0.60], Z2: [0.60, 0.70], Z3: [0.70, 0.80],
+  Z4: [0.80, 0.90], Z5: [0.90, 1.00],
 }
 
-// Template workout (8x100m VMA) — used as fallback or from client profile page
-export function generateRunTCX(clientName, vmaKmh) {
-  const sp = (v) => kmhToMs((vmaKmh / 14) * v)
+function zoneHRAvg(zone, fcMax, fcRest) {
+  const [lo, hi] = ZONE_HRR[zone] || ZONE_HRR.Z2
+  return Math.round(fcRest + (fcMax - fcRest) * (lo + hi) / 2)
+}
+
+function zoneSpeedAvgMs(zone, vmaKmh) {
+  const [lo, hi] = ZONE_VMA[zone] || ZONE_VMA.Z2
+  return vmaKmh * (lo + hi) / 2 / 3.6
+}
+
+// Build one <Lap> element in Activities/Activity format.
+// cumulDistM = cumulative distance from start of activity up to this lap's start.
+function buildLap(t0Ms, durSec, distM, hrBpm, isRest, cumulDistM) {
+  const dur = Math.max(1, Math.round(durSec))
+  const dist = Math.max(0, Math.round(distM))
+  const cumul = Math.max(0, Math.round(cumulDistM))
+  const cal = Math.round(dur / 60 * (isRest ? 3 : 8))
+  const s0 = new Date(t0Ms).toISOString()
+  const s1 = new Date(t0Ms + dur * 1000).toISOString()
+  return {
+    xml: `    <Lap StartTime="${s0}">
+      <TotalTimeSeconds>${dur}</TotalTimeSeconds>
+      <DistanceMeters>${dist}</DistanceMeters>
+      <Calories>${cal}</Calories>
+      <Intensity>${isRest ? 'Resting' : 'Active'}</Intensity>
+      <TriggerMethod>Manual</TriggerMethod>
+      <Track>
+        <Trackpoint>
+          <Time>${s0}</Time>
+          <DistanceMeters>${cumul}</DistanceMeters>
+          <HeartRateBpm><Value>${hrBpm}</Value></HeartRateBpm>
+        </Trackpoint>
+        <Trackpoint>
+          <Time>${s1}</Time>
+          <DistanceMeters>${cumul + dist}</DistanceMeters>
+          <HeartRateBpm><Value>${hrBpm}</Value></HeartRateBpm>
+        </Trackpoint>
+      </Track>
+    </Lap>`,
+    durMs: dur * 1000,
+    distM: dist,
+  }
+}
+
+function wrapActivity(sport, startISO, notes, laps) {
   return `${TCX_HEADER}
-  <Workouts>
-    <Workout Sport="Running">
-      <Name>8x100m VMA</Name>
-      <Step xsi:type="Step_t">
-        <StepId>1</StepId>
-        <Name>Echauff Z2</Name>
-        <Duration xsi:type="Time_t"><Seconds>420</Seconds></Duration>
-        <Intensity>Active</Intensity>
-        <Target xsi:type="Speed_t">
-          <SpeedZone xsi:type="CustomSpeedZone_t">
-            <LowInMetersPerSecond>${sp(9.1)}</LowInMetersPerSecond>
-            <HighInMetersPerSecond>${sp(10.5)}</HighInMetersPerSecond>
-          </SpeedZone>
-        </Target>
-      </Step>
-      <Step xsi:type="Repeat_t">
-        <StepId>2</StepId>
-        <Repetitions>8</Repetitions>
-        <Child xsi:type="Step_t">
-          <StepId>3</StepId>
-          <Name>100m VMA</Name>
-          <Duration xsi:type="Distance_t"><Meters>100</Meters></Duration>
-          <Intensity>Active</Intensity>
-          <Target xsi:type="Speed_t">
-            <SpeedZone xsi:type="CustomSpeedZone_t">
-              <LowInMetersPerSecond>${sp(13.3)}</LowInMetersPerSecond>
-              <HighInMetersPerSecond>${sp(14.7)}</HighInMetersPerSecond>
-            </SpeedZone>
-          </Target>
-        </Child>
-        <Child xsi:type="Step_t">
-          <StepId>4</StepId>
-          <Name>100m recup</Name>
-          <Duration xsi:type="Distance_t"><Meters>100</Meters></Duration>
-          <Intensity>Resting</Intensity>
-          <Target xsi:type="Open_t"/>
-        </Child>
-      </Step>
-      <Step xsi:type="Step_t">
-        <StepId>5</StepId>
-        <Name>Retour calme</Name>
-        <Duration xsi:type="Time_t"><Seconds>300</Seconds></Duration>
-        <Intensity>Active</Intensity>
-        <Target xsi:type="Speed_t">
-          <SpeedZone xsi:type="CustomSpeedZone_t">
-            <LowInMetersPerSecond>${sp(7.0)}</LowInMetersPerSecond>
-            <HighInMetersPerSecond>${sp(9.0)}</HighInMetersPerSecond>
-          </SpeedZone>
-        </Target>
-      </Step>
-      <Notes>MooVLab | VMA ${vmaKmh} km/h${clientName ? ' | ' + clientName : ''}</Notes>
-    </Workout>
-  </Workouts>
+  <Activities>
+    <Activity Sport="${sport}">
+      <Id>${startISO}</Id>
+${laps.map(l => l.xml).join('\n')}
+      <Notes>${tcxSanitize(notes, 200)}</Notes>
+    </Activity>
+  </Activities>
 </TrainingCenterDatabase>`
 }
 
-// Session-specific TCX — reads actual session_data structure
-export function generateSessionTCX(sessionTitle, sessionData, vmaKmh) {
+// Template workout: 8×100m VMA — generates an activity importable on Garmin Connect
+export function generateRunTCX(clientName, vmaKmh, fcMax = 190, fcRest = 55) {
+  const vma = vmaKmh || 14
+  const now = new Date()
+  let tMs = now.getTime()
+  let cumDist = 0
+  const laps = []
+
+  const addLap = (zone, durSec, distM, isRest = false) => {
+    const l = buildLap(tMs, durSec, distM, zoneHRAvg(zone, fcMax, fcRest), isRest, cumDist)
+    laps.push(l); tMs += l.durMs; cumDist += l.distM
+  }
+
+  const spZ2 = zoneSpeedAvgMs('Z2', vma)
+  const spZ4 = zoneSpeedAvgMs('Z4', vma)
+  const spZ1 = zoneSpeedAvgMs('Z1', vma)
+
+  addLap('Z2', 420, spZ2 * 420)                          // Échauffement 7 min Z2
+  for (let i = 0; i < 8; i++) {
+    addLap('Z4', 100 / spZ4, 100)                        // 100m effort Z4
+    addLap('Z1', 100 / spZ1, 100, true)                  // 100m récup Z1
+  }
+  addLap('Z1', 300, spZ1 * 300, true)                    // Retour calme 5 min Z1
+
+  const notes = `MooVLab | VMA ${vma} km/h${clientName ? ' | ' + clientName : ''}`
+  return wrapActivity('Running', now.toISOString(), notes, laps)
+}
+
+// Session-specific TCX — converts session_data to a Garmin Connect importable activity
+export function generateSessionTCX(sessionTitle, sessionData, vmaKmh, fcMax = 190, fcRest = 55) {
   const vma = vmaKmh || 14
   const sd = sessionData || {}
-  const name = tcxName(sessionTitle || 'Seance course', 50)
+  const now = new Date()
+  let tMs = now.getTime()
+  let cumDist = 0
+  const laps = []
 
-  let id = 1
-  const steps = []
+  const addLap = (zone, durSec, distM, isRest = false) => {
+    if (durSec <= 0) return
+    const l = buildLap(tMs, durSec, distM, zoneHRAvg(zone, fcMax, fcRest), isRest, cumDist)
+    laps.push(l); tMs += l.durMs; cumDist += l.distM
+  }
 
-  if (sd.warmup?.duration_min) {
-    steps.push(tcxSpeedStep(id++, 'Echauff', 'time', sd.warmup.duration_min * 60, sd.warmup.zone || 'Z2', vma))
+  if (+sd.warmup?.duration_min > 0) {
+    const z = sd.warmup.zone || 'Z2'
+    const d = sd.warmup.duration_min * 60
+    addLap(z, d, zoneSpeedAvgMs(z, vma) * d)
   }
 
   if (sd.main?.mode === 'intervals' && sd.main.intervals?.length > 0) {
     for (const itv of sd.main.intervals) {
-      const [lo, hi] = ZONE_VMA[itv.zone] || ZONE_VMA.Z5
-      const sp = (pct) => kmhToMs(vma * pct)
-      const repId = id++; const wId = id++; const rId = id++
-      const useDist = (itv.effort_mode ?? 'distance') !== 'time'
-      const workDur = useDist && itv.distance_m
-        ? `<Duration xsi:type="Distance_t"><Meters>${itv.distance_m}</Meters></Duration>`
-        : `<Duration xsi:type="Time_t"><Seconds>${itv.duration_sec || 60}</Seconds></Duration>`
-      const recSec = itv.recovery_sec ?? (itv.recovery_min ? itv.recovery_min * 60 : 90)
-      const recDur = itv.recovery_mode === 'distance' && itv.recovery_dist_m
-        ? `<Duration xsi:type="Distance_t"><Meters>${itv.recovery_dist_m}</Meters></Duration>`
-        : `<Duration xsi:type="Time_t"><Seconds>${Math.round(recSec)}</Seconds></Duration>`
-      steps.push(`      <Step xsi:type="Repeat_t">
-        <StepId>${repId}</StepId>
-        <Repetitions>${itv.reps || 1}</Repetitions>
-        <Child xsi:type="Step_t">
-          <StepId>${wId}</StepId>
-          <Name>${tcxName(itv.zone || 'Effort')}</Name>
-          ${workDur}
-          <Intensity>Active</Intensity>
-          <Target xsi:type="Speed_t">
-            <SpeedZone xsi:type="CustomSpeedZone_t">
-              <LowInMetersPerSecond>${sp(lo)}</LowInMetersPerSecond>
-              <HighInMetersPerSecond>${sp(hi)}</HighInMetersPerSecond>
-            </SpeedZone>
-          </Target>
-        </Child>
-        <Child xsi:type="Step_t">
-          <StepId>${rId}</StepId>
-          <Name>Recup</Name>
-          ${recDur}
-          <Intensity>Resting</Intensity>
-          <Target xsi:type="Open_t"/>
-        </Child>
-      </Step>`)
+      const reps = Math.max(1, parseInt(itv.reps) || 1)
+      const z = itv.zone || 'Z4'
+      const sp = zoneSpeedAvgMs(z, vma)
+      const spR = zoneSpeedAvgMs('Z1', vma)
+      for (let i = 0; i < reps; i++) {
+        let dur, dist
+        if ((itv.effort_mode ?? 'distance') !== 'time') {
+          dist = parseInt(itv.distance_m) || 400
+          dur = dist / sp
+        } else {
+          dur = parseInt(itv.duration_sec) || 60
+          dist = sp * dur
+        }
+        addLap(z, dur, dist)
+        if (itv.recovery_mode === 'distance') {
+          const rd = parseInt(itv.recovery_dist_m) || 0
+          if (rd > 0) addLap('Z1', rd / spR, rd, true)
+        } else {
+          const rs = parseInt(itv.recovery_sec) || 0
+          if (rs > 0) addLap('Z1', rs, spR * rs, true)
+        }
+      }
     }
-  } else if (sd.main) {
-    steps.push(tcxSpeedStep(id++, 'Effort', 'time', (sd.main.duration_min || 30) * 60, sd.main.zone || 'Z2', vma))
+  } else if (sd.main?.mode === 'continuous' && +sd.main?.duration_min > 0) {
+    const z = sd.main.zone || 'Z3'
+    const d = sd.main.duration_min * 60
+    addLap(z, d, zoneSpeedAvgMs(z, vma) * d)
   }
 
-  if (sd.cooldown?.duration_min) {
-    steps.push(tcxSpeedStep(id++, 'Retour calme', 'time', sd.cooldown.duration_min * 60, sd.cooldown.zone || 'Z1', vma))
+  if (+sd.cooldown?.duration_min > 0) {
+    const z = sd.cooldown.zone || 'Z1'
+    const d = sd.cooldown.duration_min * 60
+    addLap(z, d, zoneSpeedAvgMs(z, vma) * d, true)
   }
 
-  if (steps.length === 0) return generateRunTCX('', vma)
+  if (laps.length === 0) return generateRunTCX('', vma, fcMax, fcRest)
 
-  return `${TCX_HEADER}
-  <Workouts>
-    <Workout Sport="Running">
-      <Name>${name}</Name>
-${steps.join('\n')}
-      <Notes>MooVLab | VMA ${vma} km/h</Notes>
-    </Workout>
-  </Workouts>
-</TrainingCenterDatabase>`
+  const notes = `${tcxSanitize(sessionTitle || 'Seance course', 80)} | MooVLab VMA ${vma} km/h`
+  return wrapActivity('Running', now.toISOString(), notes, laps)
 }
 
 // Session-specific ZWO (Zwift) — reads session_data, power relative to FTP
