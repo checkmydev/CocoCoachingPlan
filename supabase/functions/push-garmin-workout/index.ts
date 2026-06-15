@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { GarminConnect } from 'npm:garmin-connect'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +16,7 @@ function buildWorkout(name: string, sd: any, vma: number) {
   }
 
   const steps: any[] = []
-  let so = 1 // global step order counter
+  let so = 1
 
   function execStep(
     desc: string,
@@ -44,22 +43,18 @@ function buildWorkout(name: string, sd: any, vma: number) {
     }
   }
 
-  // Warmup
   if (+sd?.warmup?.duration_min > 0) {
     const z = sd.warmup.zone ?? 'Z2'
     steps.push(execStep(`Echauffement ${z}`, 'time', Math.round(sd.warmup.duration_min * 60)))
   }
 
-  // Main block
   if (sd?.main?.mode === 'intervals') {
     for (const itv of sd.main.intervals ?? []) {
       const reps = Math.max(1, parseInt(itv.reps) || 1)
       const z = itv.zone ?? 'Z4'
-      const parentSo = so++ // reserve stepOrder for the RepeatGroupStep
+      const parentSo = so++
 
       const childSteps: any[] = []
-
-      // Effort step
       const effortKey = (itv.effort_mode ?? 'distance') === 'time' ? 'time' : 'distance'
       const effortVal = effortKey === 'distance'
         ? (parseInt(itv.distance_m) || 400)
@@ -69,7 +64,6 @@ function buildWorkout(name: string, sd: any, vma: number) {
         effortKey, effortVal, 'ACTIVE', parentSo,
       ))
 
-      // Recovery step
       const recVal = itv.recovery_mode === 'distance'
         ? (parseInt(itv.recovery_dist_m) || 0)
         : (parseInt(itv.recovery_sec) || 0)
@@ -93,16 +87,12 @@ function buildWorkout(name: string, sd: any, vma: number) {
     steps.push(execStep(`Continu ${z}`, 'time', Math.round(sd.main.duration_min * 60)))
   }
 
-  // Cooldown
   if (+sd?.cooldown?.duration_min > 0) {
     const z = sd.cooldown.zone ?? 'Z1'
     steps.push(execStep(`Retour calme ${z}`, 'time', Math.round(sd.cooldown.duration_min * 60), 'REST'))
   }
 
-  // Ensure at least one step
-  if (steps.length === 0) {
-    steps.push(execStep('Séance MooVLab', 'time', 1800))
-  }
+  if (steps.length === 0) steps.push(execStep('Séance MooVLab', 'time', 1800))
 
   return {
     workoutName: name.slice(0, 50),
@@ -113,6 +103,7 @@ function buildWorkout(name: string, sd: any, vma: number) {
 }
 
 serve(async (req: Request) => {
+  // OPTIONS always succeeds — must be before any import that could fail
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
@@ -123,6 +114,9 @@ serve(async (req: Request) => {
         status: 400, headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
+
+    // Lazy import so module load errors don't prevent OPTIONS handler from working
+    const { GarminConnect } = await import('npm:garmin-connect')
 
     const gc = new GarminConnect({ domain: 'garmin.com' })
     await gc.login(garminEmail.trim(), garminPassword)
