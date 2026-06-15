@@ -115,8 +115,9 @@ serve(async (req: Request) => {
       })
     }
 
-    // Lazy import so module load errors don't prevent OPTIONS handler from working
-    const { GarminConnect } = await import('npm:garmin-connect')
+    // Lazy import — garmin-connect is a CJS default export
+    const mod = await import('npm:garmin-connect')
+    const GarminConnect = mod.default ?? mod.GarminConnect ?? mod
 
     const gc = new GarminConnect({ domain: 'garmin.com' })
     await gc.login(garminEmail.trim(), garminPassword)
