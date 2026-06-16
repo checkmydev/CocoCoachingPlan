@@ -390,13 +390,6 @@ export default function Onboarding({ onComplete, onCancel, initialData = {}, sav
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none" />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mes objectifs personnels</label>
-                <textarea name="personal_objectives" value={form.personal_objectives} onChange={handleChange} rows={3}
-                  placeholder="Quels sont vos objectifs concrets à court et long terme ?"
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none" />
-              </div>
-
               <div className="border-t pt-4 mt-4">
                 <h3 className="font-semibold text-gray-800 mb-3">Auto-évaluation (1 = faible, 7 = élevé)</h3>
                 <ScaleInput name="scale_interest"    label={SCALE_LABELS.interest}    value={form.scale_interest}    onChange={handleScale} />
