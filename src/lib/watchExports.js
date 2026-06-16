@@ -536,6 +536,7 @@ export function generateWorkoutJSON(title, sd, vmaKmh) {
 
   function execStep(desc, endKey, endVal, intensity = 'ACTIVE', childStepId = null) {
     return {
+      type: 'ExecutableStep',
       stepOrder: so++,
       stepType: { stepTypeId: 7, stepTypeKey: 'ExecutableStep' },
       childStepId,
@@ -578,6 +579,7 @@ export function generateWorkoutJSON(title, sd, vmaKmh) {
       }
 
       steps.push({
+        type: 'RepeatGroupStep',
         stepOrder: parentSo,
         stepType: { stepTypeId: 6, stepTypeKey: 'RepeatGroupStep' },
         childStepId: null,
