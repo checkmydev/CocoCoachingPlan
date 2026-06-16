@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
 import VideoPlayer from '../../components/VideoPlayer'
-import { generateSessionTCX, generateSessionZWO, generateSessionMRC, generateWorkoutFIT, downloadFile } from '../../lib/watchExports'
+import { generateSessionTCX, generateSessionZWO, generateSessionMRC, generateWorkoutFIT, generateWorkoutJSON, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 
@@ -328,21 +328,31 @@ function SessionModal({ session, onClose, clientVma = 14, clientFtp = 200 }) {
         <div className="px-5 py-4 border-t shrink-0 space-y-2">
           {/* Watch export */}
           {(session.session_type === 'running' || session.session_type === 'trail') && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => downloadFile(
-                  generateWorkoutFIT(session.title, sd, clientVma),
-                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.fit`
-                )}
-                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
-                ⌚ Garmin workout <span className="text-gray-400 text-xs">.fit</span>
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadFile(
+                    generateWorkoutFIT(session.title, sd, clientVma),
+                    `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.fit`
+                  )}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
+                  ⌚ Garmin <span className="text-gray-400 text-xs">.fit</span>
+                </button>
+                <button
+                  onClick={() => downloadFile(
+                    generateWorkoutJSON(session.title, sd, clientVma),
+                    `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.json`
+                  )}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
+                  ⌚ Garmin <span className="text-gray-400 text-xs">.json</span>
+                </button>
+              </div>
               <button
                 onClick={() => downloadFile(
                   generateSessionTCX(session.title, sd, clientVma),
                   `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.tcx`
                 )}
-                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-blue-50 flex items-center justify-center gap-1.5 transition-colors">
+                className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-blue-50 flex items-center justify-center gap-1.5 transition-colors">
                 ⌚ Polar / Suunto <span className="text-gray-400 text-xs">.tcx</span>
               </button>
             </div>

@@ -521,6 +521,90 @@ export function generateWorkoutFIT(title, sd, vmaKmh) {
   return result
 }
 
+// ─── Garmin Connect Workout JSON ─────────────────────────────────────────────
+// Compatible with the Garmin Connect API format used by browser extensions
+// (e.g. "Share your Garmin Connect workout") and the unofficial API.
+
+export function generateWorkoutJSON(title, sd, vmaKmh) {
+  const SPORT = { sportTypeId: 1, sportTypeKey: 'running' }
+  const NO_TARGET = {
+    targetType: { workoutTargetTypeId: 1, workoutTargetTypeKey: 'no.target' },
+    targetValueOne: null, targetValueTwo: null, zoneNumber: null,
+  }
+  let so = 1
+  const steps = []
+
+  function execStep(desc, endKey, endVal, intensity = 'ACTIVE', childStepId = null) {
+    return {
+      stepOrder: so++,
+      stepType: { stepTypeId: 7, stepTypeKey: 'ExecutableStep' },
+      childStepId,
+      description: desc,
+      endCondition: endKey === 'time'
+        ? { conditionTypeId: 2, conditionTypeKey: 'time' }
+        : { conditionTypeId: 3, conditionTypeKey: 'distance' },
+      endConditionValue: endVal,
+      preferredEndConditionUnit: endKey === 'distance' ? { unitId: 2, unitKey: 'meter' } : null,
+      isEndConditionCustom: false,
+      ...NO_TARGET,
+      intensity: intensity === 'REST'
+        ? { intensityId: 2, intensityKey: 'REST' }
+        : { intensityId: 1, intensityKey: 'ACTIVE' },
+    }
+  }
+
+  if (+sd?.warmup?.duration_min > 0) {
+    steps.push(execStep(`Echauffement ${sd.warmup.zone || 'Z2'}`, 'time', Math.round(+sd.warmup.duration_min * 60)))
+  }
+
+  if (sd?.main?.mode === 'intervals') {
+    for (const itv of sd.main.intervals || []) {
+      const reps = Math.max(1, parseInt(itv.reps) || 1)
+      const z = itv.zone || 'Z4'
+      const parentSo = so++
+      const childSteps = []
+
+      const isDist = (itv.effort_mode ?? 'distance') !== 'time'
+      const effortKey = isDist ? 'distance' : 'time'
+      const effortVal = isDist ? (parseInt(itv.distance_m) || 400) : (parseInt(itv.duration_sec) || 60)
+      childSteps.push(execStep(`${z} – ${isDist ? effortVal + 'm' : effortVal + 's'}`, effortKey, effortVal, 'ACTIVE', parentSo))
+
+      const recDist = parseInt(itv.recovery_dist_m) || 0
+      const recSec  = parseInt(itv.recovery_sec) || 0
+      const recVal  = itv.recovery_mode === 'distance' ? recDist : recSec
+      if (recVal > 0) {
+        const recKey = itv.recovery_mode === 'distance' ? 'distance' : 'time'
+        childSteps.push(execStep('Recuperation Z1', recKey, recVal, 'REST', parentSo))
+      }
+
+      steps.push({
+        stepOrder: parentSo,
+        stepType: { stepTypeId: 6, stepTypeKey: 'RepeatGroupStep' },
+        childStepId: null,
+        numberOfIterations: reps,
+        endCondition: { conditionTypeId: 7, conditionTypeKey: 'iterations' },
+        endConditionValue: reps,
+        workoutSteps: childSteps,
+      })
+    }
+  } else if (sd?.main?.mode === 'continuous' && +sd?.main?.duration_min > 0) {
+    steps.push(execStep(`Continu ${sd.main.zone || 'Z3'}`, 'time', Math.round(+sd.main.duration_min * 60)))
+  }
+
+  if (+sd?.cooldown?.duration_min > 0) {
+    steps.push(execStep(`Retour calme ${sd.cooldown.zone || 'Z1'}`, 'time', Math.round(+sd.cooldown.duration_min * 60), 'REST'))
+  }
+
+  if (steps.length === 0) steps.push(execStep('Seance MooVLab', 'time', 1800))
+
+  return JSON.stringify({
+    workoutName: (title || 'MooVLab').slice(0, 50),
+    description: `MooVLab | VMA ${vmaKmh || 14} km/h`,
+    sportType: SPORT,
+    workoutSegments: [{ segmentOrder: 1, sportType: SPORT, workoutSteps: steps }],
+  }, null, 2)
+}
+
 export async function downloadFile(content, filename) {
   const blob = new Blob([content], { type: 'application/octet-stream' })
 
