@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Logo from '../../components/Logo'
+import { OBJECTIVES } from '../../lib/tips'
 
 const MOOV_GREEN = '#39E229'
 
@@ -74,6 +75,7 @@ export default function Onboarding({ onComplete, initialData = {}, save }) {
     special_precautions: initialData.special_precautions ?? '',
     personal_stakes: initialData.personal_stakes ?? '',
     personal_objectives: initialData.personal_objectives ?? '',
+    selected_objectives: initialData.selected_objectives ?? [],
     scale_interest: initialData.scale_interest ?? null,
     scale_motivation: initialData.scale_motivation ?? null,
     scale_confidence: initialData.scale_confidence ?? null,
@@ -94,6 +96,16 @@ export default function Onboarding({ onComplete, initialData = {}, save }) {
 
   function handleScale(name, value) {
     setForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  function toggleObjective(id) {
+    setForm(prev => {
+      const arr = prev.selected_objectives || []
+      return {
+        ...prev,
+        selected_objectives: arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id],
+      }
+    })
   }
 
   function nextStep() {
@@ -320,6 +332,49 @@ export default function Onboarding({ onComplete, initialData = {}, save }) {
           {/* Step 3 */}
           {step === 3 && (
             <div className="space-y-4">
+
+              {/* Sélection d'objectifs */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mes objectifs sportifs
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  Sélectionnez les objectifs qui vous correspondent — vous recevrez des conseils personnalisés 2× par semaine.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {OBJECTIVES.map(obj => {
+                    const selected = (form.selected_objectives || []).includes(obj.id)
+                    return (
+                      <button
+                        key={obj.id}
+                        type="button"
+                        onClick={() => toggleObjective(obj.id)}
+                        className="flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all"
+                        style={selected
+                          ? { borderColor: MOOV_GREEN, backgroundColor: '#f0fdf4' }
+                          : { borderColor: '#e5e7eb', backgroundColor: '#fff' }
+                        }
+                      >
+                        <span className="text-2xl">{obj.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900">{obj.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{obj.subtitle}</p>
+                        </div>
+                        <div
+                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                          style={selected
+                            ? { borderColor: MOOV_GREEN, backgroundColor: MOOV_GREEN }
+                            : { borderColor: '#d1d5db' }
+                          }
+                        >
+                          {selected && <span className="text-black text-xs font-bold">✓</span>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mes enjeux personnels</label>
                 <textarea name="personal_stakes" value={form.personal_stakes} onChange={handleChange} rows={3}

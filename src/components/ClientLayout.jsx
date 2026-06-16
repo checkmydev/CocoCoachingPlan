@@ -6,6 +6,8 @@ import { getLevel, getLevelProgress } from '../lib/gamification'
 import Logo from './Logo'
 import { useClientProfile } from '../hooks/useClientProfile'
 import Onboarding from '../pages/client/Onboarding'
+import TipBanner from './TipBanner'
+import { useDailyTip } from '../lib/dailyTip'
 
 const MOOV_GREEN = '#39E229'
 
@@ -27,6 +29,11 @@ export default function ClientLayout({ children }) {
 
   const level = stats ? getLevel(stats.total_xp) : null
   const progress = stats ? getLevelProgress(stats.total_xp) : 0
+
+  const { tip, dismiss } = useDailyTip(
+    profile?.id,
+    clientProfile?.selected_objectives,
+  )
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -126,6 +133,9 @@ export default function ClientLayout({ children }) {
           )}
         </div>
       </header>
+
+      {/* Conseil du jour */}
+      {tip && <TipBanner tip={tip} onDismiss={dismiss} />}
 
       {/* Content */}
       <main className={`mx-auto p-4 pb-24 md:pb-6 ${pathname.includes('/calendar') ? 'w-full max-w-6xl' : 'max-w-2xl'}`}>{children}</main>
