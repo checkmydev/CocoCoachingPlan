@@ -56,7 +56,7 @@ export const TIPS = [
   },
   {
     id: 8, objectiveIds: [1], category: 'Entraînement',
-    title: 'Maîtrisez la distance à l'entraînement',
+    title: "Maîtrisez la distance à l'entraînement",
     body: "Assurez-vous de pouvoir valider séparément chaque distance (nager 1 500 m, rouler 40 km, courir 10 km) bien avant la course.",
   },
   {
@@ -96,7 +96,7 @@ export const TIPS = [
   },
   {
     id: 16, objectiveIds: [1], category: 'Cyclisme',
-    title: 'Soignez l'aérodynamisme',
+    title: "Soignez l'aérodynamisme",
     body: "Des prolongateurs sur votre guidon de route vous aident à fendre l'air plus efficacement et à économiser de précieuses minutes sur le plat.",
   },
   // ── NATATION ─────────────────────────────────────────────────────────────
@@ -122,17 +122,17 @@ export const TIPS = [
   },
   {
     id: 21, objectiveIds: [1], category: 'Natation',
-    title: 'Améliorez votre prise d'appui',
+    title: "Améliorez votre prise d'appui",
     body: "Concentrez-vous sur la phase de traction sous l'eau plutôt que sur votre fréquence. Une bonne prise d'appui propulse plus efficacement à chaque coup de bras.",
   },
   {
     id: 22, objectiveIds: [1], category: 'Natation',
-    title: 'Entraînez-vous dans l'eau froide',
+    title: "Entraînez-vous dans l'eau froide",
     body: "Si votre course a lieu en début de saison, adaptez progressivement votre corps aux basses températures pour éviter le choc thermique au départ.",
   },
   {
     id: 23, objectiveIds: [1], category: 'Natation',
-    title: 'Nagez en groupe à l'entraînement',
+    title: "Nagez en groupe à l'entraînement",
     body: "Reproduire les conditions de course vous apprend à gérer les contacts et à profiter du sillage des nageurs devant vous.",
   },
   {
@@ -142,12 +142,12 @@ export const TIPS = [
   },
   {
     id: 25, objectiveIds: [1], category: 'Natation',
-    title: 'Travaillez votre sortie d'eau',
+    title: "Travaillez votre sortie d'eau",
     body: "Entraînez-vous à courir depuis les derniers mètres de natation tout en retirant lunettes et bonnet — vous gagnerez de précieuses secondes en T1.",
   },
   {
     id: 26, objectiveIds: [1], category: 'Natation',
-    title: 'Utilisez des palmes courtes à l'entraînement',
+    title: "Utilisez des palmes courtes à l'entraînement",
     body: "Elles développent la force des jambes et sensibilisent au travail de cheville sans déformer votre technique.",
   },
   {
@@ -319,12 +319,12 @@ export const TIPS = [
   },
   {
     id: 60, objectiveIds: [1], category: 'Course',
-    title: 'Courez à l'allure cible sans montre',
+    title: "Courez à l'allure cible sans montre",
     body: "Entraînez-vous à tenir votre allure par ressenti. Si votre GPS flanche le jour J, vous pouvez toujours gérer votre effort.",
   },
   {
     id: 61, objectiveIds: [1], category: 'Course',
-    title: 'Tenez un journal d'entraînement',
+    title: "Tenez un journal d'entraînement",
     body: "Notez allures, fréquence cardiaque et sensations après chaque séance. Identifier vos tendances guide efficacement votre progression.",
   },
   // ── TRANSITIONS ───────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ export const TIPS = [
   },
   {
     id: 64, objectiveIds: [1], category: 'Transitions',
-    title: 'Disposez votre matériel dans l'ordre',
+    title: "Disposez votre matériel dans l'ordre",
     body: "Dans la zone de transition, votre casque doit être accessible en premier, vos chaussures de course à portée immédiate.",
   },
   {
@@ -371,7 +371,7 @@ export const TIPS = [
   },
   {
     id: 70, objectiveIds: [1], category: 'Nutrition',
-    title: 'Testez tous vos produits à l'entraînement',
+    title: "Testez tous vos produits à l'entraînement",
     body: "Gels, barres, boissons isotoniques — testez chaque produit plusieurs fois avant la course. Votre système digestif doit s'y habituer.",
   },
   {
@@ -416,7 +416,7 @@ export const TIPS = [
   },
   {
     id: 79, objectiveIds: [1], category: 'Nutrition',
-    title: 'Supprimez l'alcool la semaine de course',
+    title: "Supprimez l'alcool la semaine de course",
     body: "L'alcool perturbe le sommeil, déshydrate et ralentit la récupération. Évitez toute consommation dans les 5 jours précédant la compétition.",
   },
   // ── RÉCUPÉRATION ──────────────────────────────────────────────────────────
@@ -442,7 +442,7 @@ export const TIPS = [
   },
   {
     id: 84, objectiveIds: [1], category: 'Récupération',
-    title: 'Étirez-vous après l'effort',
+    title: "Étirez-vous après l'effort",
     body: "10 minutes d'étirements doux après chaque séance maintiennent votre souplesse. Insistez sur quadriceps, mollets et ischio-jambiers.",
   },
   {
@@ -534,7 +534,7 @@ export const TIPS = [
   },
   {
     id: 102, objectiveIds: [1], category: 'Logistique',
-    title: 'Planifiez votre saison autour d'une course cible',
+    title: "Planifiez votre saison autour d'une course cible",
     body: "Choisissez une ou deux épreuves principales et structurez votre entraînement autour de ces échéances. Les autres compétitions servent de répétitions.",
   },
   {
