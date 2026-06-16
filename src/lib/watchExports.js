@@ -522,88 +522,141 @@ export function generateWorkoutFIT(title, sd, vmaKmh) {
 }
 
 // ─── Garmin Connect Workout JSON ─────────────────────────────────────────────
-// Compatible with the Garmin Connect API format used by browser extensions
-// (e.g. "Share your Garmin Connect workout") and the unofficial API.
+// Format reverse-engineered from a real Garmin Connect workout export.
+// Compatible with the "Share your Garmin Connect workout" Chrome extension.
 
 export function generateWorkoutJSON(title, sd, vmaKmh) {
-  const SPORT = { sportTypeId: 1, sportTypeKey: 'running' }
-  const NO_TARGET = {
-    targetType: { workoutTargetTypeId: 1, workoutTargetTypeKey: 'no.target' },
-    targetValueOne: null, targetValueTwo: null, zoneNumber: null,
-  }
-  let so = 1
-  const steps = []
+  const vma = vmaKmh || 14
 
-  function execStep(desc, endKey, endVal, intensity = 'ACTIVE', childStepId = null) {
+  // Pace targets in min/km (targetValueOne=slow/higher, targetValueTwo=fast/lower)
+  const ZONE_PCT = { Z1:[0.55,0.65], Z2:[0.65,0.75], Z3:[0.75,0.85], Z4:[0.85,0.95], Z5:[0.95,1.05] }
+  function zonePace(zone) {
+    const [lo, hi] = ZONE_PCT[zone] || ZONE_PCT.Z3
+    return { slow: 60 / (vma * lo), fast: 60 / (vma * hi) }
+  }
+
+  const SPORT       = { sportTypeId: 1, sportTypeKey: 'running', displayOrder: 1 }
+  const STROKE      = { strokeTypeId: 0, strokeTypeKey: null, displayOrder: 0 }
+  const EQUIP       = { equipmentTypeId: 0, equipmentTypeKey: null, displayOrder: 0 }
+  const WEIGHT_UNIT = { unitId: 8, unitKey: 'kilogram', factor: 1000.0 }
+  const DIST_UNIT   = { unitId: 2, unitKey: 'kilometer', factor: 100000.0 }
+
+  const NO_TARGET = {
+    targetType: { workoutTargetTypeId: 1, workoutTargetTypeKey: 'no.target', displayOrder: 1 },
+    targetValueOne: null, targetValueTwo: null, targetValueUnit: null, zoneNumber: null,
+  }
+  function paceTarget(zone) {
+    const p = zonePace(zone)
     return {
-      type: 'ExecutableStep',
-      stepOrder: so++,
-      stepType: { stepTypeId: 7, stepTypeKey: 'ExecutableStep' },
-      childStepId,
-      description: desc,
-      endCondition: endKey === 'time'
-        ? { conditionTypeId: 2, conditionTypeKey: 'time' }
-        : { conditionTypeId: 3, conditionTypeKey: 'distance' },
-      endConditionValue: endVal,
-      preferredEndConditionUnit: endKey === 'distance' ? { unitId: 2, unitKey: 'meter' } : null,
-      isEndConditionCustom: false,
-      ...NO_TARGET,
-      intensity: intensity === 'REST'
-        ? { intensityId: 2, intensityKey: 'REST' }
-        : { intensityId: 1, intensityKey: 'ACTIVE' },
+      targetType: { workoutTargetTypeId: 6, workoutTargetTypeKey: 'pace.zone', displayOrder: 6 },
+      targetValueOne: p.slow, targetValueTwo: p.fast, targetValueUnit: null, zoneNumber: null,
     }
   }
 
-  if (+sd?.warmup?.duration_min > 0) {
-    steps.push(execStep(`Echauffement ${sd.warmup.zone || 'Z2'}`, 'time', Math.round(+sd.warmup.duration_min * 60)))
+  const SECONDARY = {
+    secondaryTargetType: null, secondaryTargetValueOne: null,
+    secondaryTargetValueTwo: null, secondaryTargetValueUnit: null, secondaryZoneNumber: null,
+  }
+  const COMMON = {
+    description: null, endConditionCompare: null, endConditionZone: null,
+    strokeType: STROKE, equipmentType: EQUIP,
+    category: null, exerciseName: null,
+    workoutProvider: null, providerExerciseSourceId: null,
+    weightValue: -1.0, weightUnit: WEIGHT_UNIT,
+    ...SECONDARY,
   }
 
+  const COND_LAP  = { conditionTypeId: 1, conditionTypeKey: 'lap.button', displayOrder: 1, displayable: true }
+  const COND_TIME = { conditionTypeId: 2, conditionTypeKey: 'time',       displayOrder: 2, displayable: true }
+  const COND_DIST = { conditionTypeId: 3, conditionTypeKey: 'distance',   displayOrder: 3, displayable: true }
+  const COND_ITER = { conditionTypeId: 7, conditionTypeKey: 'iterations', displayOrder: 7, displayable: false }
+
+  let so = 1, gid = 0
+  const steps = []
+
+  function execStep(typeId, typeKey, cond, condVal, target, childStepId = null) {
+    return {
+      type: 'ExecutableStepDTO', stepId: null, stepOrder: so++,
+      stepType: { stepTypeId: typeId, stepTypeKey: typeKey, displayOrder: typeId },
+      childStepId,
+      endCondition: cond,
+      endConditionValue: parseFloat(condVal),
+      preferredEndConditionUnit: cond === COND_DIST ? DIST_UNIT : null,
+      ...target, ...COMMON,
+    }
+  }
+
+  // Warmup
+  if (+sd?.warmup?.duration_min > 0)
+    steps.push(execStep(1, 'warmup', COND_TIME, +sd.warmup.duration_min * 60, NO_TARGET))
+  else
+    steps.push(execStep(1, 'warmup', COND_LAP, 0.0, NO_TARGET))
+
+  // Main
   if (sd?.main?.mode === 'intervals') {
     for (const itv of sd.main.intervals || []) {
       const reps = Math.max(1, parseInt(itv.reps) || 1)
-      const z = itv.zone || 'Z4'
+      const z    = itv.zone || 'Z4'
       const parentSo = so++
+      gid++
       const childSteps = []
 
       const isDist = (itv.effort_mode ?? 'distance') !== 'time'
-      const effortKey = isDist ? 'distance' : 'time'
-      const effortVal = isDist ? (parseInt(itv.distance_m) || 400) : (parseInt(itv.duration_sec) || 60)
-      childSteps.push(execStep(`${z} – ${isDist ? effortVal + 'm' : effortVal + 's'}`, effortKey, effortVal, 'ACTIVE', parentSo))
+      childSteps.push(execStep(
+        3, 'interval',
+        isDist ? COND_DIST : COND_TIME,
+        isDist ? (parseInt(itv.distance_m) || 400) : (parseInt(itv.duration_sec) || 60),
+        paceTarget(z), gid
+      ))
 
       const recDist = parseInt(itv.recovery_dist_m) || 0
       const recSec  = parseInt(itv.recovery_sec) || 0
-      const recVal  = itv.recovery_mode === 'distance' ? recDist : recSec
-      if (recVal > 0) {
-        const recKey = itv.recovery_mode === 'distance' ? 'distance' : 'time'
-        childSteps.push(execStep('Recuperation Z1', recKey, recVal, 'REST', parentSo))
+      const hasRec  = itv.recovery_mode === 'distance' ? recDist > 0 : recSec > 0
+      if (hasRec) {
+        const isDistR = itv.recovery_mode === 'distance'
+        childSteps.push(execStep(4, 'recovery', isDistR ? COND_DIST : COND_TIME, isDistR ? recDist : recSec, NO_TARGET, gid))
       }
 
       steps.push({
-        type: 'RepeatGroupStep',
-        stepOrder: parentSo,
-        stepType: { stepTypeId: 6, stepTypeKey: 'RepeatGroupStep' },
-        childStepId: null,
-        numberOfIterations: reps,
-        endCondition: { conditionTypeId: 7, conditionTypeKey: 'iterations' },
-        endConditionValue: reps,
+        type: 'RepeatGroupDTO', stepId: null, stepOrder: parentSo,
+        stepType: { stepTypeId: 6, stepTypeKey: 'repeat', displayOrder: 6 },
+        childStepId: gid, numberOfIterations: reps,
         workoutSteps: childSteps,
+        endConditionValue: parseFloat(reps),
+        preferredEndConditionUnit: null, endConditionCompare: null,
+        endCondition: COND_ITER,
+        skipLastRestStep: true, smartRepeat: false,
       })
     }
   } else if (sd?.main?.mode === 'continuous' && +sd?.main?.duration_min > 0) {
-    steps.push(execStep(`Continu ${sd.main.zone || 'Z3'}`, 'time', Math.round(+sd.main.duration_min * 60)))
+    steps.push(execStep(3, 'interval', COND_TIME, +sd.main.duration_min * 60, paceTarget(sd.main.zone || 'Z3')))
   }
 
-  if (+sd?.cooldown?.duration_min > 0) {
-    steps.push(execStep(`Retour calme ${sd.cooldown.zone || 'Z1'}`, 'time', Math.round(+sd.cooldown.duration_min * 60), 'REST'))
-  }
+  // Cooldown
+  if (+sd?.cooldown?.duration_min > 0)
+    steps.push(execStep(2, 'cooldown', COND_TIME, +sd.cooldown.duration_min * 60, NO_TARGET))
+  else
+    steps.push(execStep(2, 'cooldown', COND_LAP, 0.0, NO_TARGET))
 
-  if (steps.length === 0) steps.push(execStep('Seance MooVLab', 'time', 1800))
+  if (steps.length === 0) steps.push(execStep(3, 'interval', COND_TIME, 1800.0, NO_TARGET))
 
   return JSON.stringify({
+    workoutId: null, ownerId: null,
     workoutName: (title || 'MooVLab').slice(0, 50),
-    description: `MooVLab | VMA ${vmaKmh || 14} km/h`,
-    sportType: SPORT,
-    workoutSegments: [{ segmentOrder: 1, sportType: SPORT, workoutSteps: steps }],
+    description: null,
+    sportType: SPORT, subSportType: null, trainingPlanId: null,
+    author: null, sharedWithUsers: null,
+    estimatedDurationInSecs: null, estimatedDistanceInMeters: null,
+    workoutSegments: [{
+      segmentOrder: 1, sportType: SPORT,
+      poolLengthUnit: null, poolLength: null, avgTrainingSpeed: null,
+      estimatedDurationInSecs: null, estimatedDistanceInMeters: null,
+      estimatedDistanceUnit: null, estimateType: null, description: null,
+      workoutSteps: steps,
+    }],
+    poolLength: null, poolLengthUnit: null, locale: null,
+    workoutProvider: null, workoutSourceId: null, uploadTimestamp: null,
+    atpPlanId: null, consumer: null, shared: false,
   }, null, 2)
 }
 
