@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
 import VideoPlayer from '../../components/VideoPlayer'
-import { generateSessionTCX, generateSessionZWO, generateSessionMRC, generateWorkoutFIT, generateWorkoutJSON, downloadFile } from '../../lib/watchExports'
+import { generateSessionZWO, generateSessionMRC, generateWorkoutJSON, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 
@@ -329,32 +329,24 @@ function SessionModal({ session, onClose, clientVma = 14, clientFtp = 200 }) {
           {/* Watch export */}
           {(session.session_type === 'running' || session.session_type === 'trail') && (
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => downloadFile(
-                    generateWorkoutFIT(session.title, sd, clientVma),
-                    `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.fit`
-                  )}
-                  className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
-                  ⌚ Garmin <span className="text-gray-400 text-xs">.fit</span>
-                </button>
-                <button
-                  onClick={() => downloadFile(
+              <button
+                onClick={() => {
+                  downloadFile(
                     generateWorkoutJSON(session.title, sd, clientVma),
                     `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.json`
-                  )}
-                  className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
-                  ⌚ Garmin <span className="text-gray-400 text-xs">.json</span>
-                </button>
-              </div>
-              <button
-                onClick={() => downloadFile(
-                  generateSessionTCX(session.title, sd, clientVma),
-                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.tcx`
-                )}
-                className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-blue-50 flex items-center justify-center gap-1.5 transition-colors">
-                ⌚ Polar / Suunto <span className="text-gray-400 text-xs">.tcx</span>
+                  )
+                  window.open('https://connect.garmin.com/app/workouts', '_blank')
+                }}
+                className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
+                ⌚ Envoyer vers Garmin Connect
               </button>
+              <a
+                href="https://chromewebstore.google.com/detail/share-your-garmin-connect/kdpolhnlnkengkmfncjdbfdehglepmff"
+                target="_blank"
+                rel="noreferrer"
+                className="text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-0.5">
+                Installer l'extension Chrome (1 fois)
+              </a>
             </div>
           )}
           {(session.session_type === 'cycling' || session.session_type === 'home_trainer') && (
