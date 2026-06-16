@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
 import VideoPlayer from '../../components/VideoPlayer'
-import { generateSessionZWO, generateSessionMRC, generateWorkoutJSON, downloadFile } from '../../lib/watchExports'
+import { generateSessionZWO, generateSessionMRC, generateWorkoutJSON, generateWorkoutJSONCycling, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 
@@ -350,23 +350,43 @@ function SessionModal({ session, onClose, clientVma = 14, clientFtp = 200 }) {
             </div>
           )}
           {(session.session_type === 'cycling' || session.session_type === 'home_trainer') && (
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <button
-                onClick={() => downloadFile(
-                  generateSessionZWO(session.title, sd, clientFtp),
-                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.zwo`
-                )}
-                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-purple-50 flex items-center justify-center gap-1 transition-colors">
-                ⌚ Zwift <span className="text-gray-400 text-xs">.zwo</span>
+                onClick={() => {
+                  downloadFile(
+                    generateWorkoutJSONCycling(session.title, sd, clientFtp),
+                    `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.json`
+                  )
+                  window.open('https://connect.garmin.com/app/workouts', '_blank')
+                }}
+                className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
+                ⌚ Envoyer vers Garmin Connect
               </button>
-              <button
-                onClick={() => downloadFile(
-                  generateSessionMRC(session.title, sd, clientFtp),
-                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.mrc`
-                )}
-                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-orange-50 flex items-center justify-center gap-1 transition-colors">
-                ⌚ Wahoo <span className="text-gray-400 text-xs">.mrc</span>
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => downloadFile(
+                    generateSessionZWO(session.title, sd, clientFtp),
+                    `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.zwo`
+                  )}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-purple-50 flex items-center justify-center gap-1 transition-colors">
+                  ⌚ Zwift <span className="text-gray-400 text-xs">.zwo</span>
+                </button>
+                <button
+                  onClick={() => downloadFile(
+                    generateSessionMRC(session.title, sd, clientFtp),
+                    `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.mrc`
+                  )}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-orange-50 flex items-center justify-center gap-1 transition-colors">
+                  ⌚ Wahoo <span className="text-gray-400 text-xs">.mrc</span>
+                </button>
+              </div>
+              <a
+                href="https://chromewebstore.google.com/detail/share-your-garmin-connect/kdpolhnlnkengkmfncjdbfdehglepmff"
+                target="_blank"
+                rel="noreferrer"
+                className="text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-0.5">
+                Installer l'extension Chrome (1 fois)
+              </a>
             </div>
           )}
           <button onClick={onClose}

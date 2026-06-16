@@ -660,6 +660,126 @@ export function generateWorkoutJSON(title, sd, vmaKmh) {
   }, null, 2)
 }
 
+// ─── Garmin Connect Workout JSON — Cycling ───────────────────────────────────
+// Power targets in watts (FTP-based). Compatible with the same Chrome extension.
+
+export function generateWorkoutJSONCycling(title, sd, ftpWatts) {
+  const ftp = ftpWatts || 200
+
+  const ZONE_PCT = { Z1:[0.45,0.55], Z2:[0.55,0.75], Z3:[0.75,0.90], Z4:[0.90,1.00], Z5:[1.00,1.15] }
+  function powerTarget(zone) {
+    const [lo, hi] = ZONE_PCT[zone] || ZONE_PCT.Z3
+    return {
+      targetType: { workoutTargetTypeId: 2, workoutTargetTypeKey: 'power.3s.zone', displayOrder: 2 },
+      targetValueOne: Math.round(ftp * hi),
+      targetValueTwo: Math.round(ftp * lo),
+      targetValueUnit: null, zoneNumber: null,
+    }
+  }
+
+  const SPORT       = { sportTypeId: 2, sportTypeKey: 'cycling', displayOrder: 2 }
+  const STROKE      = { strokeTypeId: 0, strokeTypeKey: null, displayOrder: 0 }
+  const EQUIP       = { equipmentTypeId: 0, equipmentTypeKey: null, displayOrder: 0 }
+  const WEIGHT_UNIT = { unitId: 8, unitKey: 'kilogram', factor: 1000.0 }
+
+  const NO_TARGET = {
+    targetType: { workoutTargetTypeId: 1, workoutTargetTypeKey: 'no.target', displayOrder: 1 },
+    targetValueOne: null, targetValueTwo: null, targetValueUnit: null, zoneNumber: null,
+  }
+  const SECONDARY = {
+    secondaryTargetType: null, secondaryTargetValueOne: null,
+    secondaryTargetValueTwo: null, secondaryTargetValueUnit: null, secondaryZoneNumber: null,
+  }
+  const COMMON = {
+    description: null, endConditionCompare: null, endConditionZone: null,
+    strokeType: STROKE, equipmentType: EQUIP,
+    category: null, exerciseName: null,
+    workoutProvider: null, providerExerciseSourceId: null,
+    weightValue: -1.0, weightUnit: WEIGHT_UNIT,
+    ...SECONDARY,
+  }
+
+  const COND_LAP  = { conditionTypeId: 1, conditionTypeKey: 'lap.button', displayOrder: 1, displayable: true }
+  const COND_TIME = { conditionTypeId: 2, conditionTypeKey: 'time',       displayOrder: 2, displayable: true }
+  const COND_ITER = { conditionTypeId: 7, conditionTypeKey: 'iterations', displayOrder: 7, displayable: false }
+
+  let so = 1, gid = 0
+  const steps = []
+
+  function execStep(typeId, typeKey, cond, condVal, target, childStepId = null) {
+    return {
+      type: 'ExecutableStepDTO', stepId: null, stepOrder: so++,
+      stepType: { stepTypeId: typeId, stepTypeKey: typeKey, displayOrder: typeId },
+      childStepId,
+      endCondition: cond,
+      endConditionValue: parseFloat(condVal),
+      preferredEndConditionUnit: null,
+      ...target, ...COMMON,
+    }
+  }
+
+  if (+sd?.warmup?.duration_min > 0)
+    steps.push(execStep(1, 'warmup', COND_TIME, +sd.warmup.duration_min * 60, NO_TARGET))
+  else
+    steps.push(execStep(1, 'warmup', COND_LAP, 0.0, NO_TARGET))
+
+  if (sd?.main?.mode !== 'continuous' && (sd?.main?.intervals ?? []).length > 0) {
+    for (const itv of sd.main.intervals) {
+      const reps = Math.max(1, parseInt(itv.reps) || 1)
+      const z    = itv.zone || 'Z4'
+      const parentSo = so++
+      gid++
+      const childSteps = []
+
+      const durSec = parseInt(itv.duration_sec) || 60
+      childSteps.push(execStep(3, 'interval', COND_TIME, durSec, powerTarget(z), gid))
+
+      const recSec = parseInt(itv.recovery_sec) || 0
+      if (recSec > 0)
+        childSteps.push(execStep(4, 'recovery', COND_TIME, recSec, NO_TARGET, gid))
+
+      steps.push({
+        type: 'RepeatGroupDTO', stepId: null, stepOrder: parentSo,
+        stepType: { stepTypeId: 6, stepTypeKey: 'repeat', displayOrder: 6 },
+        childStepId: gid, numberOfIterations: reps,
+        workoutSteps: childSteps,
+        endConditionValue: parseFloat(reps),
+        preferredEndConditionUnit: null, endConditionCompare: null,
+        endCondition: COND_ITER,
+        skipLastRestStep: true, smartRepeat: false,
+      })
+    }
+  } else if (sd?.main?.mode === 'continuous' && +sd?.main?.duration_min > 0) {
+    steps.push(execStep(3, 'interval', COND_TIME, +sd.main.duration_min * 60, powerTarget(sd.main.zone || 'Z2')))
+  }
+
+  if (+sd?.cooldown?.duration_min > 0)
+    steps.push(execStep(2, 'cooldown', COND_TIME, +sd.cooldown.duration_min * 60, NO_TARGET))
+  else
+    steps.push(execStep(2, 'cooldown', COND_LAP, 0.0, NO_TARGET))
+
+  if (steps.length === 0) steps.push(execStep(3, 'interval', COND_TIME, 1800.0, NO_TARGET))
+
+  return JSON.stringify({
+    workoutId: null, ownerId: null,
+    workoutName: (title || 'MooVLab').slice(0, 50),
+    description: null,
+    sportType: SPORT, subSportType: null, trainingPlanId: null,
+    author: null, sharedWithUsers: null,
+    estimatedDurationInSecs: null, estimatedDistanceInMeters: null,
+    workoutSegments: [{
+      segmentOrder: 1, sportType: SPORT,
+      poolLengthUnit: null, poolLength: null, avgTrainingSpeed: null,
+      estimatedDurationInSecs: null, estimatedDistanceInMeters: null,
+      estimatedDistanceUnit: null, estimateType: null, description: null,
+      workoutSteps: steps,
+    }],
+    poolLength: null, poolLengthUnit: null, locale: null,
+    workoutProvider: null, workoutSourceId: null, uploadTimestamp: null,
+    atpPlanId: null, consumer: null, shared: false,
+  }, null, 2)
+}
+
 export async function downloadFile(content, filename) {
   const blob = new Blob([content], { type: 'application/octet-stream' })
 
