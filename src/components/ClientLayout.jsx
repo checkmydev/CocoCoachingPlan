@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useStats } from '../contexts/StatsContext'
@@ -20,6 +20,7 @@ const NAV_LINKS = [
 
 export default function ClientLayout({ children }) {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { profile } = useAuth()
   const { stats } = useStats()
   const { clientProfile, loading: profileLoading, saveClientProfile, refetch } = useClientProfile()
@@ -127,7 +128,7 @@ export default function ClientLayout({ children }) {
       </header>
 
       {/* Content */}
-      <main className="max-w-2xl mx-auto p-4 pb-24 md:pb-6">{children}</main>
+      <main className={`mx-auto p-4 pb-24 md:pb-6 ${pathname.includes('/calendar') ? 'w-full max-w-6xl' : 'max-w-2xl'}`}>{children}</main>
 
       {/* ── Bottom tab bar — mobile only ── */}
       <nav
