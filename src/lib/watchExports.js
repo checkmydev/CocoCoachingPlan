@@ -140,7 +140,7 @@ export function generateSessionTCX(sessionTitle, sessionData, vmaKmh, fcMax = 19
     addLap(z, d, zoneSpeedAvgMs(z, vma) * d)
   }
 
-  if (sd.main?.mode === 'intervals' && sd.main.intervals?.length > 0) {
+  if (sd.main?.mode !== 'continuous' && (sd.main?.intervals ?? []).length > 0) {
     for (const itv of sd.main.intervals) {
       const reps = Math.max(1, parseInt(itv.reps) || 1)
       const z = itv.zone || 'Z4'
@@ -194,7 +194,7 @@ export function generateSessionZWO(sessionTitle, sessionData, ftpWatts) {
     parts.push(`    <Warmup Duration="${sd.warmup.duration_min * 60}" PowerLow="${lo.toFixed(3)}" PowerHigh="${hi.toFixed(3)}" pace="0"/>`)
   }
 
-  if (sd.main?.mode === 'intervals' && sd.main.intervals?.length > 0) {
+  if (sd.main?.mode !== 'continuous' && (sd.main?.intervals ?? []).length > 0) {
     for (const itv of sd.main.intervals) {
       const [lo, hi] = ZONE_FTP[itv.zone] || ZONE_FTP.Z5
       const pwr = ((lo + hi) / 2).toFixed(3)
@@ -247,7 +247,7 @@ export function generateSessionMRC(sessionTitle, sessionData, ftpWatts) {
     seg(sd.warmup.duration_min, (lo + hi) / 2)
   }
 
-  if (sd.main?.mode === 'intervals' && sd.main.intervals?.length > 0) {
+  if (sd.main?.mode !== 'continuous' && (sd.main?.intervals ?? []).length > 0) {
     for (const itv of sd.main.intervals) {
       const [lo, hi] = ZONE_FTP[itv.zone] || ZONE_FTP.Z5
       const workMins = (itv.duration_sec || 60) / 60
@@ -388,8 +388,8 @@ export function generateWorkoutFIT(title, sd, vmaKmh) {
       durType:0, durVal:Math.round(+sd.warmup.duration_min * 60 * 1000) })
   }
 
-  if (sd?.main?.mode === 'intervals') {
-    for (const itv of sd.main.intervals || []) {
+  if (sd?.main?.mode !== 'continuous' && (sd?.main?.intervals ?? []).length > 0) {
+    for (const itv of sd.main.intervals) {
       const reps = Math.max(1, parseInt(itv.reps) || 1)
       const z = itv.zone || 'Z4'
       const blockStart = steps.length
@@ -592,9 +592,9 @@ export function generateWorkoutJSON(title, sd, vmaKmh) {
   else
     steps.push(execStep(1, 'warmup', COND_LAP, 0.0, NO_TARGET))
 
-  // Main
-  if (sd?.main?.mode === 'intervals') {
-    for (const itv of sd.main.intervals || []) {
+  // Main — match display logic: intervals present when mode !== 'continuous'
+  if (sd?.main?.mode !== 'continuous' && (sd?.main?.intervals ?? []).length > 0) {
+    for (const itv of sd.main.intervals) {
       const reps = Math.max(1, parseInt(itv.reps) || 1)
       const z    = itv.zone || 'Z4'
       const parentSo = so++
