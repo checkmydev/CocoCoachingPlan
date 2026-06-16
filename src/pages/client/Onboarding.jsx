@@ -48,7 +48,7 @@ function ScaleInput({ name, label, value, onChange }) {
   )
 }
 
-export default function Onboarding({ onComplete, initialData = {}, save }) {
+export default function Onboarding({ onComplete, onCancel, initialData = {}, save, editMode = false }) {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -145,12 +145,20 @@ export default function Onboarding({ onComplete, initialData = {}, save }) {
           <div className="rounded-lg overflow-hidden" style={{ backgroundColor: '#0f0f0f' }}>
             <Logo size="sm" />
           </div>
-          <span className="font-semibold text-gray-800 flex-1">Bienvenue — Profil personnel</span>
-          <button
-            onClick={async () => { await supabase.auth.signOut(); navigate('/login') }}
-            className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors">
-            ↩ Déconnexion
-          </button>
+          <span className="font-semibold text-gray-800 flex-1">
+            {editMode ? 'Mon profil' : 'Bienvenue — Profil personnel'}
+          </span>
+          {editMode
+            ? <button onClick={onCancel}
+                className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
+                ← Retour
+              </button>
+            : <button
+                onClick={async () => { await supabase.auth.signOut(); navigate('/login') }}
+                className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-3 py-1.5 transition-colors">
+                ↩ Déconnexion
+              </button>
+          }
         </div>
         {/* Progress bar */}
         <div className="h-1 bg-gray-100">
@@ -423,7 +431,7 @@ export default function Onboarding({ onComplete, initialData = {}, save }) {
               <button type="button" onClick={handleSubmit} disabled={saving}
                 className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-colors disabled:opacity-60"
                 style={{ backgroundColor: MOOV_GREEN, color: '#000' }}>
-                {saving ? 'Enregistrement...' : 'Terminer et accéder à l\'app ✓'}
+                {saving ? 'Enregistrement...' : editMode ? 'Sauvegarder ✓' : 'Terminer et accéder à l\'app ✓'}
               </button>
             )}
           </div>

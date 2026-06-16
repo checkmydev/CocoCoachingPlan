@@ -19,6 +19,7 @@ import Progression from './pages/client/Progression'
 import Calendar from './pages/client/Calendar'
 import Nutrition from './pages/client/Nutrition'
 import Lifestyle from './pages/client/Lifestyle'
+import ProfileEdit from './pages/client/ProfileEdit'
 
 function ClientRoutes() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="calendar" element={<Calendar />} />
           <Route path="nutrition" element={<Nutrition />} />
           <Route path="lifestyle" element={<Lifestyle />} />
+          <Route path="profile" element={<ProfileEdit />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

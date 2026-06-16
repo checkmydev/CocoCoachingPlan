@@ -113,12 +113,18 @@ export default function ClientLayout({ children }) {
                 )}
               </>
             )}
+            <NavLink
+              to="/client/profile"
+              title="Mon profil"
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 border border-gray-200 hover:border-gray-300 rounded-lg px-2 py-1 transition-colors">
+              <span>👤</span>
+              <span className="hidden sm:inline max-w-[100px] truncate">{profile?.email}</span>
+            </NavLink>
             <button
               onClick={handleLogout}
-              title={`Déconnecter ${profile?.email ?? ''}`}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors">
-              <span className="hidden sm:inline max-w-[100px] truncate">{profile?.email}</span>
-              <span>↩</span>
+              title="Se déconnecter"
+              className="flex items-center text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 rounded-lg px-2 py-1 transition-colors">
+              ↩
             </button>
           </div>
         </div>
