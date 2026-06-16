@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
 import VideoPlayer from '../../components/VideoPlayer'
-import { generateSessionTCX, generateSessionZWO, generateSessionMRC, downloadFile } from '../../lib/watchExports'
+import { generateSessionTCX, generateSessionZWO, generateSessionMRC, generateWorkoutFIT, downloadFile } from '../../lib/watchExports'
 
 const MOOV_GREEN = '#39E229'
 
@@ -99,43 +99,6 @@ function ExerciseCard({ ex, index }) {
 function SessionModal({ session, onClose, clientVma = 14, clientFtp = 200 }) {
   const [enriched, setEnriched] = useState([])
   const [loading, setLoading] = useState(false)
-  const [garminOpen, setGarminOpen] = useState(false)
-  const [garminEmail, setGarminEmail] = useState(() => localStorage.getItem('moovlab_garmin_email') || '')
-  const [garminPassword, setGarminPassword] = useState('')
-  const [garminLoading, setGarminLoading] = useState(false)
-  const [garminResult, setGarminResult] = useState(null)
-
-  useEffect(() => {
-    setGarminOpen(false)
-    setGarminResult(null)
-    setGarminPassword('')
-  }, [session?.id])
-
-  async function handleGarminSync() {
-    setGarminLoading(true)
-    setGarminResult(null)
-    try {
-      localStorage.setItem('moovlab_garmin_email', garminEmail)
-      const { data, error } = await supabase.functions.invoke('push-garmin-workout', {
-        body: { garminEmail, garminPassword, sessionTitle: session.title, sessionData: session.session_data ?? {}, vmaKmh: clientVma },
-      })
-      if (error) {
-        let msg = error.message
-        try { const b = await error.context?.json?.(); if (b?.error) msg = b.error } catch {}
-        setGarminResult({ success: false, message: msg })
-      } else if (data?.error) {
-        setGarminResult({ success: false, message: data.error })
-      } else {
-        setGarminResult({ success: true, message: `Séance envoyée vers Garmin Connect ✓` })
-        setGarminPassword('')
-      }
-    } catch (err) {
-      setGarminResult({ success: false, message: err.message || 'Erreur inattendue' })
-    } finally {
-      setGarminLoading(false)
-    }
-  }
-
   useEffect(() => {
     if (!session) { setEnriched([]); return }
     const exList = session.session_data?.exercises ?? []
@@ -364,62 +327,26 @@ function SessionModal({ session, onClose, clientVma = 14, clientFtp = 200 }) {
         {/* Footer */}
         <div className="px-5 py-4 border-t shrink-0 space-y-2">
           {/* Watch export */}
-          {(session.session_type === 'running' || session.session_type === 'trail') && (<>
-            <button
-              onClick={() => downloadFile(
-                generateSessionTCX(session.title, sd, clientVma),
-                `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.tcx`
-              )}
-              className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-blue-50 flex items-center justify-center gap-2 transition-colors">
-              ⌚ Garmin / Polar / Suunto <span className="text-gray-400 text-xs">.tcx</span>
-            </button>
-
-            {/* Garmin Connect direct push */}
-            {!garminOpen ? (
+          {(session.session_type === 'running' || session.session_type === 'trail') && (
+            <div className="flex gap-2">
               <button
-                onClick={() => { setGarminOpen(true); setGarminResult(null) }}
-                className="w-full rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-gray-50 flex items-center justify-center gap-2 transition-colors">
-                📲 Envoyer vers Garmin Connect
-              </button>
-            ) : (
-              <div className="rounded-xl border border-gray-200 p-3 space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Garmin Connect</p>
-                <input
-                  type="email"
-                  placeholder="Email Garmin"
-                  value={garminEmail}
-                  onChange={e => setGarminEmail(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="password"
-                  placeholder="Mot de passe"
-                  value={garminPassword}
-                  onChange={e => setGarminPassword(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && garminEmail && garminPassword && handleGarminSync()}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {garminResult && (
-                  <p className={`text-xs ${garminResult.success ? 'text-green-600' : 'text-red-500'}`}>
-                    {garminResult.message}
-                  </p>
+                onClick={() => downloadFile(
+                  generateWorkoutFIT(session.title, sd, clientVma),
+                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.fit`
                 )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setGarminOpen(false); setGarminResult(null) }}
-                    className="flex-1 rounded-lg py-2 text-sm border border-gray-200 hover:bg-gray-50 transition-colors">
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleGarminSync}
-                    disabled={garminLoading || !garminEmail || !garminPassword}
-                    className="flex-1 rounded-lg py-2 text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                    {garminLoading ? 'Envoi…' : 'Envoyer'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </>)}
+                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-green-50 flex items-center justify-center gap-1.5 transition-colors">
+                ⌚ Garmin workout <span className="text-gray-400 text-xs">.fit</span>
+              </button>
+              <button
+                onClick={() => downloadFile(
+                  generateSessionTCX(session.title, sd, clientVma),
+                  `moovlab_${(session.title || 'seance').replace(/[\s/\\:*?"<>|]/g, '_').toLowerCase()}.tcx`
+                )}
+                className="flex-1 rounded-xl py-2.5 text-sm font-medium border border-gray-200 hover:bg-blue-50 flex items-center justify-center gap-1.5 transition-colors">
+                ⌚ Polar / Suunto <span className="text-gray-400 text-xs">.tcx</span>
+              </button>
+            </div>
+          )}
           {(session.session_type === 'cycling' || session.session_type === 'home_trainer') && (
             <div className="flex gap-2">
               <button

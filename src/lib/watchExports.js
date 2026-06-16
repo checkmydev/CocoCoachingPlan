@@ -343,6 +343,172 @@ MINUTES WATTS
 [END COURSE DATA]`
 }
 
+// ─── FIT Workout file generator (Garmin FIT Protocol 2.0) ───────────────────
+// Generates a binary .fit file (type 5 = workout) importable in Garmin Connect
+// as a planned workout — NOT an activity.
+
+function fitCrc16(bytes) {
+  const T = [0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,
+             0xA001,0x6C00,0x7800,0xB401,0x5000,0x9C01,0x8801,0x4400]
+  let crc = 0
+  for (const b of bytes) {
+    let t = T[crc & 0xF]; crc = (crc >> 4) & 0x0FFF; crc ^= t ^ T[b & 0xF]
+    t = T[crc & 0xF]; crc = (crc >> 4) & 0x0FFF; crc ^= t ^ T[(b >> 4) & 0xF]
+  }
+  return crc
+}
+
+function fitAscii(s, maxLen) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x20-\x7E]/g, '').slice(0, maxLen)
+}
+
+export function generateWorkoutFIT(title, sd, vmaKmh) {
+  // Duration types
+  const DUR_TIME     = 0  // durationValue = seconds * 1000
+  const DUR_DISTANCE = 1  // durationValue = meters * 100
+  const DUR_REPEAT   = 6  // durationValue = first step idx, targetValue = reps
+
+  // Target types
+  const TGT_OPEN = 2  // no target
+
+  // Intensity values
+  const INT_ACTIVE   = 0
+  const INT_REST     = 1
+  const INT_WARMUP   = 2
+  const INT_COOLDOWN = 3
+  const INT_INTERVAL = 5
+
+  // Build step list
+  const steps = []
+
+  if (+sd?.warmup?.duration_min > 0) {
+    steps.push({
+      name: `Echauf ${sd.warmup.zone || 'Z2'}`,
+      durType: DUR_TIME,
+      durVal: Math.round(sd.warmup.duration_min * 60 * 1000),
+      tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_WARMUP,
+    })
+  }
+
+  if (sd?.main?.mode === 'intervals') {
+    for (const itv of sd.main.intervals || []) {
+      const reps = Math.max(1, parseInt(itv.reps) || 1)
+      const z = itv.zone || 'Z4'
+      const blockStart = steps.length
+
+      const isDistEffort = (itv.effort_mode ?? 'distance') !== 'time'
+      const effortDist = parseInt(itv.distance_m) || 400
+      const effortSec  = parseInt(itv.duration_sec) || 60
+      steps.push({
+        name: `${z} ${isDistEffort ? effortDist + 'm' : effortSec + 's'}`,
+        durType: isDistEffort ? DUR_DISTANCE : DUR_TIME,
+        durVal:  isDistEffort ? effortDist * 100 : effortSec * 1000,
+        tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_INTERVAL,
+      })
+
+      const recDist = parseInt(itv.recovery_dist_m) || 0
+      const recSec  = parseInt(itv.recovery_sec) || 0
+      const hasRecup = itv.recovery_mode === 'distance' ? recDist > 0 : recSec > 0
+      if (hasRecup) {
+        const isDistRecup = itv.recovery_mode === 'distance'
+        steps.push({
+          name: 'Recup Z1',
+          durType: isDistRecup ? DUR_DISTANCE : DUR_TIME,
+          durVal:  isDistRecup ? recDist * 100 : recSec * 1000,
+          tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_REST,
+        })
+      }
+
+      // Repeat block — must immediately follow the block
+      steps.push({
+        name: `x${reps}`,
+        durType: DUR_REPEAT,
+        durVal:  blockStart, // message_index of first step to repeat
+        tgtType: TGT_OPEN,
+        tgtVal:  reps,       // number of repetitions
+        intensity: INT_ACTIVE,
+      })
+    }
+  } else if (sd?.main?.mode === 'continuous' && +sd?.main?.duration_min > 0) {
+    const z = sd.main.zone || 'Z3'
+    steps.push({
+      name: `Continu ${z}`,
+      durType: DUR_TIME,
+      durVal: Math.round(sd.main.duration_min * 60 * 1000),
+      tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_ACTIVE,
+    })
+  }
+
+  if (+sd?.cooldown?.duration_min > 0) {
+    steps.push({
+      name: `Calme ${sd.cooldown.zone || 'Z1'}`,
+      durType: DUR_TIME,
+      durVal: Math.round(sd.cooldown.duration_min * 60 * 1000),
+      tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_COOLDOWN,
+    })
+  }
+
+  if (steps.length === 0) {
+    steps.push({ name: 'MooVLab', durType: DUR_TIME, durVal: 1800000, tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_ACTIVE })
+  }
+
+  // Binary encoding
+  const S16 = 16, S24 = 24  // fixed STRING field sizes
+  const ENUM = 0x00, UINT16 = 0x84, UINT32 = 0x86, STRING = 0x07
+  const buf = []
+
+  const u8  = v => buf.push(v & 0xFF)
+  const u16 = v => buf.push(v & 0xFF, (v >> 8) & 0xFF)
+  const u32 = v => buf.push(v & 0xFF, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >>> 24) & 0xFF)
+  const str = (s, len) => {
+    const b = new TextEncoder().encode(fitAscii(s, len - 1))
+    for (let i = 0; i < len; i++) buf.push(i < b.length ? b[i] : 0)
+  }
+  const defMsg = (local, global_, fields) => {
+    u8(0x40 | local); u8(0); u8(0); u16(global_); u8(fields.length)
+    for (const [fdn, sz, bt] of fields) { u8(fdn); u8(sz); u8(bt) }
+  }
+
+  const garminNow = Math.floor(Date.now() / 1000) - 631065600
+
+  // File ID (local 0, global 0)
+  defMsg(0, 0, [[0,1,ENUM],[1,2,UINT16],[2,2,UINT16],[4,4,UINT32]])
+  u8(0); u8(5); u16(255); u16(0); u32(garminNow)
+
+  // Workout (local 1, global 26)
+  defMsg(1, 26, [[4,1,ENUM],[6,2,UINT16],[8,S24,STRING]])
+  u8(1); u8(1); u16(steps.length); str(title || 'MooVLab', S24)
+
+  // Workout Step (local 2, global 27)
+  defMsg(2, 27, [[254,2,UINT16],[0,S16,STRING],[1,1,ENUM],[2,4,UINT32],[3,1,ENUM],[4,4,UINT32],[5,4,UINT32],[6,4,UINT32],[7,1,ENUM]])
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i]
+    u8(2); u16(i); str(s.name, S16)
+    u8(s.durType); u32(s.durVal)
+    u8(s.tgtType); u32(s.tgtVal)
+    u32(0); u32(0)  // custom_target_low / high (unused)
+    u8(s.intensity ?? 0)
+  }
+
+  // Finalize: header (14) + data (n) + data_crc (2)
+  const data = new Uint8Array(buf)
+  const dataCrc = fitCrc16(data)
+  const header = new Uint8Array(14)
+  const hv = new DataView(header.buffer)
+  header[0] = 14; header[1] = 0x20
+  hv.setUint16(2, 2132, true)
+  hv.setUint32(4, data.length, true)
+  header[8] = 0x2E; header[9] = 0x46; header[10] = 0x49; header[11] = 0x54  // .FIT
+  hv.setUint16(12, fitCrc16(header.subarray(0, 12)), true)
+
+  const result = new Uint8Array(14 + data.length + 2)
+  result.set(header, 0)
+  result.set(data, 14)
+  result[14 + data.length] = dataCrc & 0xFF
+  result[14 + data.length + 1] = (dataCrc >> 8) & 0xFF
+  return result
+}
+
 export async function downloadFile(content, filename) {
   const blob = new Blob([content], { type: 'application/octet-stream' })
 
