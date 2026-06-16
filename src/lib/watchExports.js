@@ -343,9 +343,10 @@ MINUTES WATTS
 [END COURSE DATA]`
 }
 
-// ─── FIT Workout file generator (Garmin FIT Protocol 2.0) ───────────────────
+// ─── FIT Workout file generator (Garmin FIT Protocol 1.0) ───────────────────
 // Generates a binary .fit file (type 5 = workout) importable in Garmin Connect
 // as a planned workout — NOT an activity.
+// Format reverse-engineered from a real Garmin device export.
 
 function fitCrc16(bytes) {
   const T = [0x0000,0xCC01,0xD801,0x1400,0xF001,0x3C00,0x2800,0xE401,
@@ -363,31 +364,28 @@ function fitAscii(s, maxLen) {
 }
 
 export function generateWorkoutFIT(title, sd, vmaKmh) {
-  // Duration types
-  const DUR_TIME     = 0  // durationValue = seconds * 1000
-  const DUR_DISTANCE = 1  // durationValue = meters * 100
-  const DUR_REPEAT   = 6  // durationValue = first step idx, targetValue = reps
+  const vma = vmaKmh || 14
 
-  // Target types
-  const TGT_OPEN = 2  // no target
+  // Zone speed range → mm/s for Garmin custom_target_speed fields
+  const ZONE_VMA_SPD = { Z1:[0.55,0.65], Z2:[0.65,0.75], Z3:[0.75,0.85], Z4:[0.85,0.95], Z5:[0.95,1.05] }
+  function zoneSpeedMms(zone) {
+    const [lo, hi] = ZONE_VMA_SPD[zone] || ZONE_VMA_SPD.Z2
+    return { lo: Math.round(vma * lo / 3.6 * 1000), hi: Math.round(vma * hi / 3.6 * 1000) }
+  }
 
-  // Intensity values
-  const INT_ACTIVE   = 0
-  const INT_REST     = 1
-  const INT_WARMUP   = 2
-  const INT_COOLDOWN = 3
-  const INT_INTERVAL = 5
+  // FIT intensity enum values from device export: active=0,rest=1,warmup=2,cooldown=3,recovery=4,interval=5
+  const INT = { warmup:2, active:0, interval:5, recovery:4, cooldown:3, rest:1 }
 
-  // Build step list
+  // Build step list — two kinds:
+  //   normal: { intensity, spdLo, spdHi, tgtType, durType, durVal }
+  //   repeat: { blockStart, reps }
   const steps = []
 
   if (+sd?.warmup?.duration_min > 0) {
-    steps.push({
-      name: `Echauf ${sd.warmup.zone || 'Z2'}`,
-      durType: DUR_TIME,
-      durVal: Math.round(sd.warmup.duration_min * 60 * 1000),
-      tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_WARMUP,
-    })
+    const spd = zoneSpeedMms(sd.warmup.zone || 'Z2')
+    steps.push({ kind:'normal', intensity:INT.warmup,
+      spdLo:spd.lo, spdHi:spd.hi, tgtType:0,
+      durType:0, durVal:Math.round(+sd.warmup.duration_min * 60 * 1000) })
   }
 
   if (sd?.main?.mode === 'intervals') {
@@ -395,66 +393,48 @@ export function generateWorkoutFIT(title, sd, vmaKmh) {
       const reps = Math.max(1, parseInt(itv.reps) || 1)
       const z = itv.zone || 'Z4'
       const blockStart = steps.length
+      const spd = zoneSpeedMms(z)
 
-      const isDistEffort = (itv.effort_mode ?? 'distance') !== 'time'
-      const effortDist = parseInt(itv.distance_m) || 400
-      const effortSec  = parseInt(itv.duration_sec) || 60
-      steps.push({
-        name: `${z} ${isDistEffort ? effortDist + 'm' : effortSec + 's'}`,
-        durType: isDistEffort ? DUR_DISTANCE : DUR_TIME,
-        durVal:  isDistEffort ? effortDist * 100 : effortSec * 1000,
-        tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_INTERVAL,
-      })
+      const isDist = (itv.effort_mode ?? 'distance') !== 'time'
+      steps.push({ kind:'normal', intensity:INT.interval,
+        spdLo:spd.lo, spdHi:spd.hi, tgtType:0,
+        durType: isDist ? 1 : 0,
+        durVal:  isDist ? (parseInt(itv.distance_m)||400)*100 : (parseInt(itv.duration_sec)||60)*1000 })
 
       const recDist = parseInt(itv.recovery_dist_m) || 0
       const recSec  = parseInt(itv.recovery_sec) || 0
-      const hasRecup = itv.recovery_mode === 'distance' ? recDist > 0 : recSec > 0
-      if (hasRecup) {
-        const isDistRecup = itv.recovery_mode === 'distance'
-        steps.push({
-          name: 'Recup Z1',
-          durType: isDistRecup ? DUR_DISTANCE : DUR_TIME,
-          durVal:  isDistRecup ? recDist * 100 : recSec * 1000,
-          tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_REST,
-        })
+      const hasRec  = itv.recovery_mode === 'distance' ? recDist > 0 : recSec > 0
+      if (hasRec) {
+        const isDistR = itv.recovery_mode === 'distance'
+        steps.push({ kind:'normal', intensity:INT.recovery,
+          spdLo:0xFFFFFFFF, spdHi:0xFFFFFFFF, tgtType:2,
+          durType: isDistR ? 1 : 0,
+          durVal:  isDistR ? recDist*100 : recSec*1000 })
       }
 
-      // Repeat block — must immediately follow the block
-      steps.push({
-        name: `x${reps}`,
-        durType: DUR_REPEAT,
-        durVal:  blockStart, // message_index of first step to repeat
-        tgtType: TGT_OPEN,
-        tgtVal:  reps,       // number of repetitions
-        intensity: INT_ACTIVE,
-      })
+      steps.push({ kind:'repeat', blockStart, reps })
     }
   } else if (sd?.main?.mode === 'continuous' && +sd?.main?.duration_min > 0) {
-    const z = sd.main.zone || 'Z3'
-    steps.push({
-      name: `Continu ${z}`,
-      durType: DUR_TIME,
-      durVal: Math.round(sd.main.duration_min * 60 * 1000),
-      tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_ACTIVE,
-    })
+    const spd = zoneSpeedMms(sd.main.zone || 'Z3')
+    steps.push({ kind:'normal', intensity:INT.active,
+      spdLo:spd.lo, spdHi:spd.hi, tgtType:0,
+      durType:0, durVal:Math.round(+sd.main.duration_min * 60 * 1000) })
   }
 
   if (+sd?.cooldown?.duration_min > 0) {
-    steps.push({
-      name: `Calme ${sd.cooldown.zone || 'Z1'}`,
-      durType: DUR_TIME,
-      durVal: Math.round(sd.cooldown.duration_min * 60 * 1000),
-      tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_COOLDOWN,
-    })
+    const spd = zoneSpeedMms(sd.cooldown.zone || 'Z1')
+    steps.push({ kind:'normal', intensity:INT.cooldown,
+      spdLo:spd.lo, spdHi:spd.hi, tgtType:0,
+      durType:0, durVal:Math.round(+sd.cooldown.duration_min * 60 * 1000) })
   }
 
   if (steps.length === 0) {
-    steps.push({ name: 'MooVLab', durType: DUR_TIME, durVal: 1800000, tgtType: TGT_OPEN, tgtVal: 0, intensity: INT_ACTIVE })
+    steps.push({ kind:'normal', intensity:INT.active,
+      spdLo:0xFFFFFFFF, spdHi:0xFFFFFFFF, tgtType:2, durType:0, durVal:1800000 })
   }
 
-  // Binary encoding
-  const S16 = 16, S24 = 24  // fixed STRING field sizes
-  const ENUM = 0x00, UINT16 = 0x84, UINT32 = 0x86, STRING = 0x07
+  // ── Binary encoding ──────────────────────────────────────────────────────
+  const ENUM=0x00, UINT8=0x02, UINT16=0x84, UINT32=0x86, UINT32Z=0x8C, STRING=0x07
   const buf = []
 
   const u8  = v => buf.push(v & 0xFF)
@@ -464,41 +444,73 @@ export function generateWorkoutFIT(title, sd, vmaKmh) {
     const b = new TextEncoder().encode(fitAscii(s, len - 1))
     for (let i = 0; i < len; i++) buf.push(i < b.length ? b[i] : 0)
   }
-  const defMsg = (local, global_, fields) => {
-    u8(0x40 | local); u8(0); u8(0); u16(global_); u8(fields.length)
+  const defMsg = (global_, fields) => {
+    u8(0x40); u8(0); u8(0); u16(global_); u8(fields.length)  // local 0 always
     for (const [fdn, sz, bt] of fields) { u8(fdn); u8(sz); u8(bt) }
   }
+  const dataHdr = () => u8(0)
 
   const garminNow = Math.floor(Date.now() / 1000) - 631065600
 
-  // File ID (local 0, global 0)
-  defMsg(0, 0, [[0,1,ENUM],[1,2,UINT16],[2,2,UINT16],[4,4,UINT32]])
-  u8(0); u8(5); u16(255); u16(0); u32(garminNow)
+  const wktName = fitAscii(title || 'MooVLab', 30)
+  const nameLen = wktName.length + 1  // +1 null terminator (matches device dynamic naming)
 
-  // Workout (local 1, global 26)
-  defMsg(1, 26, [[4,1,ENUM],[6,2,UINT16],[8,S24,STRING]])
-  u8(1); u8(1); u16(steps.length); str(title || 'MooVLab', S24)
+  // File ID (global 0): type=5, manufacturer=1(Garmin), product=65534, time_created, serial(UINT32Z)
+  defMsg(0, [[0,1,ENUM],[1,2,UINT16],[2,2,UINT16],[4,4,UINT32],[3,4,UINT32Z]])
+  dataHdr(); u8(5); u16(1); u16(65534); u32(garminNow); u32(0)
 
-  // Workout Step (local 2, global 27)
-  defMsg(2, 27, [[254,2,UINT16],[0,S16,STRING],[1,1,ENUM],[2,4,UINT32],[3,1,ENUM],[4,4,UINT32],[5,4,UINT32],[6,4,UINT32],[7,1,ENUM]])
-  for (let i = 0; i < steps.length; i++) {
-    const s = steps[i]
-    u8(2); u16(i); str(s.name, S16)
-    u8(s.durType); u32(s.durVal)
-    u8(s.tgtType); u32(s.tgtVal)
-    u32(0); u32(0)  // custom_target_low / high (unused)
-    u8(s.intensity ?? 0)
-  }
+  // File Creator (global 49) — required by Garmin devices for valid import
+  defMsg(49, [[1,1,UINT8],[0,2,UINT16]])
+  dataHdr(); u8(0); u16(0)
 
-  // Finalize: header (14) + data (n) + data_crc (2)
+  // Workout (global 26): name, sport=1(running), sub_sport=0, capabilities=32, num_steps, msg_index
+  defMsg(26, [[8,nameLen,STRING],[4,1,ENUM],[11,1,ENUM],[5,4,UINT32Z],[6,2,UINT16],[254,2,UINT16]])
+  dataHdr(); str(wktName, nameLen); u8(1); u8(0); u32(32); u16(steps.length); u16(0)
+
+  // Workout Step definitions (reuse local 0, redefine per step type):
+  // • normal (12 fields): matches device export field order exactly
+  // • repeat  (5 fields): matches device export repeat step format
+  const NORMAL_DEF = [[254,2,UINT16],[7,1,ENUM],[5,4,UINT32],[6,4,UINT32],[4,4,UINT32],[3,1,ENUM],[19,1,ENUM],[20,4,UINT32],[1,1,ENUM],[2,4,UINT32],[12,2,UINT16],[13,2,UINT16]]
+  const REPEAT_DEF = [[1,1,ENUM],[4,4,UINT32],[254,2,UINT16],[2,4,UINT32],[18,1,ENUM]]
+
+  let curDef = null
+
+  steps.forEach((s, i) => {
+    if (s.kind === 'repeat') {
+      if (curDef !== 'repeat') { defMsg(27, REPEAT_DEF); curDef = 'repeat' }
+      dataHdr()
+      u8(6)             // duration_type = repeat_until_steps_cmplt
+      u32(s.reps)       // target_value = rep count
+      u16(i)            // message_index
+      u32(s.blockStart) // duration_value = first step index to repeat from
+      u8(0)             // field 18 (observed in device export)
+    } else {
+      if (curDef !== 'normal') { defMsg(27, NORMAL_DEF); curDef = 'normal' }
+      dataHdr()
+      u16(i)            // message_index
+      u8(s.intensity)   // intensity
+      u32(s.spdLo)      // custom_target_speed_low  (mm/s, 0xFFFFFFFF = invalid/open)
+      u32(s.spdHi)      // custom_target_speed_high (mm/s)
+      u32(0)            // target_value (0 = use custom range)
+      u8(s.tgtType)     // target_type: 0=speed, 2=open
+      u8(255)           // secondary_target_type = invalid (0xFF)
+      u32(0)            // secondary_target_value
+      u8(s.durType)     // duration_type: 0=time, 1=distance
+      u32(s.durVal)     // duration_value (ms for time, m×100 for distance)
+      u16(65535)        // exercise_category = invalid (0xFFFF)
+      u16(1)            // field 13 as observed in device export
+    }
+  })
+
+  // ── Finalize: header(14) + data(n) + crc(2) ─────────────────────────────
   const data = new Uint8Array(buf)
   const dataCrc = fitCrc16(data)
   const header = new Uint8Array(14)
   const hv = new DataView(header.buffer)
-  header[0] = 14; header[1] = 0x20
-  hv.setUint16(2, 2132, true)
+  header[0] = 14; header[1] = 0x10        // protocol 1.0 — matches device export
+  hv.setUint16(2, 21170, true)             // profile version — matches device export
   hv.setUint32(4, data.length, true)
-  header[8] = 0x2E; header[9] = 0x46; header[10] = 0x49; header[11] = 0x54  // .FIT
+  header[8]=0x2E; header[9]=0x46; header[10]=0x49; header[11]=0x54  // .FIT
   hv.setUint16(12, fitCrc16(header.subarray(0, 12)), true)
 
   const result = new Uint8Array(14 + data.length + 2)
