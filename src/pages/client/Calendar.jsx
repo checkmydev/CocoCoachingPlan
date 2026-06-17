@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { SESSION_TYPES } from '../../lib/sessionTypes'
 import { useClientProfile } from '../../hooks/useClientProfile'
+import { OBJECTIVES } from '../../lib/tips'
 import VideoPlayer from '../../components/VideoPlayer'
 import { generateSessionZWO, generateSessionMRC, generateWorkoutJSON, generateWorkoutJSONCycling, downloadFile } from '../../lib/watchExports'
 
@@ -459,11 +460,16 @@ export default function Calendar() {
   return (
     <div className="space-y-4">
       {/* Objective banner */}
-      {clientProfile?.personal_objectives && (
+      {clientProfile?.selected_objectives?.length > 0 && (
         <div className="rounded-xl p-3 text-sm"
           style={{ backgroundColor: '#f0fdf4', borderLeft: `4px solid ${MOOV_GREEN}` }}>
           <p className="font-semibold text-gray-800 mb-0.5">🎯 Objectif</p>
-          <p className="text-gray-600 line-clamp-2">{clientProfile.personal_objectives}</p>
+          {clientProfile.selected_objectives.map(id => {
+            const obj = OBJECTIVES.find(o => o.id === id)
+            return obj ? (
+              <p key={id} className="text-gray-600">{obj.icon} {obj.title}</p>
+            ) : null
+          })}
         </div>
       )}
 
